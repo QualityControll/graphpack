@@ -38,11 +38,18 @@ fn main() {
 
     unsafe { tensorflow_sys::TF_DeleteBuffer(buffer) };
 
-    let mut names: Vec<String> = op_list.op.into_iter().map(|op| op.name).collect();
+    let mut names: Vec<String> = op_list
+        .op
+        .into_iter()
+        .filter_map(|op| (!op.name.starts_with('_')).then_some(op.name))
+        .collect();
     names.sort();
     names.dedup();
 
-    println!("cargo:warning=TensorFlow exposes {} operations", names.len());
+    println!(
+        "cargo:warning=TensorFlow exposes {} public operations",
+        names.len()
+    );
 
     let output = PathBuf::from("src/tensorflow_ops.rs");
     let mut generated = String::from("pub const TENSORFLOW_OPS: &[&str] = &[\n");
