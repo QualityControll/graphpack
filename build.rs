@@ -44,8 +44,7 @@ fn main() {
 
     println!("cargo:warning=TensorFlow exposes {} operations", names.len());
 
-    let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is not set"));
-    let output = out_dir.join("tensorflow_ops.rs");
+    let output = PathBuf::from("src/tensorflow_ops.rs");
     let mut generated = String::from("pub const TENSORFLOW_OPS: &[&str] = &[\n");
     for name in &names {
         generated.push_str(&format!("    {name:?},\n"));
