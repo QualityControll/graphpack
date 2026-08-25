@@ -90,6 +90,10 @@ fn rust_string(value: &str) -> String {
     format!("{value:?}")
 }
 
+fn rust_bytes(value: &[u8]) -> String {
+    format!("&{value:?}")
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
@@ -136,36 +140,52 @@ fn main() {
     for (index, op) in ops.iter().enumerate() {
         generated.push_str(&format!("static INPUT_ARGS_{index}: &[TensorFlowArgDef] = &[\n"));
         for arg in &op.input_arg {
+            let experimental_full_type = arg
+                .experimental_full_type
+                .as_deref()
+                .map(|v| format!("Some({})", rust_bytes(v)))
+                .unwrap_or_else(|| "None".to_string());
             generated.push_str(&format!(
                 "    TensorFlowArgDef {{ name: {}, description: {}, data_type: {}, type_attr: {}, number_attr: {}, type_list_attr: {}, handle_data: &[], is_ref: {}, experimental_full_type: {} }},\n",
                 rust_string(&arg.name), rust_string(&arg.description), arg.r#type,
                 rust_string(&arg.type_attr), rust_string(&arg.number_attr),
-                rust_string(&arg.type_list_attr), arg.is_ref,
-                arg.experimental_full_type.as_deref().map(|v| format!("Some(&{v:?})")).unwrap_or_else(|| "None"),
+                rust_string(&arg.type_list_attr), arg.is_ref, experimental_full_type,
             ));
         }
         generated.push_str("];\n");
 
         generated.push_str(&format!("static OUTPUT_ARGS_{index}: &[TensorFlowArgDef] = &[\n"));
         for arg in &op.output_arg {
+            let experimental_full_type = arg
+                .experimental_full_type
+                .as_deref()
+                .map(|v| format!("Some({})", rust_bytes(v)))
+                .unwrap_or_else(|| "None".to_string());
             generated.push_str(&format!(
                 "    TensorFlowArgDef {{ name: {}, description: {}, data_type: {}, type_attr: {}, number_attr: {}, type_list_attr: {}, handle_data: &[], is_ref: {}, experimental_full_type: {} }},\n",
                 rust_string(&arg.name), rust_string(&arg.description), arg.r#type,
                 rust_string(&arg.type_attr), rust_string(&arg.number_attr),
-                rust_string(&arg.type_list_attr), arg.is_ref,
-                arg.experimental_full_type.as_deref().map(|v| format!("Some(&{v:?})")).unwrap_or_else(|| "None"),
+                rust_string(&arg.type_list_attr), arg.is_ref, experimental_full_type,
             ));
         }
         generated.push_str("];\n");
 
         generated.push_str(&format!("static ATTRS_{index}: &[TensorFlowAttrDef] = &[\n"));
         for attr in &op.attr {
+            let default_value = attr
+                .default_value
+                .as_deref()
+                .map(|v| format!("Some({})", rust_bytes(v)))
+                .unwrap_or_else(|| "None".to_string());
+            let allowed_values = attr
+                .allowed_values
+                .as_deref()
+                .map(|v| format!("Some({})", rust_bytes(v)))
+                .unwrap_or_else(|| "None".to_string());
             generated.push_str(&format!(
                 "    TensorFlowAttrDef {{ name: {}, data_type: {}, default_value: {}, description: {}, has_minimum: {}, minimum: {}, allowed_values: {} }},\n",
-                rust_string(&attr.name), rust_string(&attr.r#type),
-                attr.default_value.as_deref().map(|v| format!("Some(&{v:?})")).unwrap_or_else(|| "None"),
-                rust_string(&attr.description), attr.has_minimum, attr.minimum,
-                attr.allowed_values.as_deref().map(|v| format!("Some(&{v:?})")).unwrap_or_else(|| "None"),
+                rust_string(&attr.name), rust_string(&attr.r#type), default_value,
+                rust_string(&attr.description), attr.has_minimum, attr.minimum, allowed_values,
             ));
         }
         generated.push_str("];\n");
