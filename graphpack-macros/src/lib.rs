@@ -2,6 +2,8 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, ExprClosure, Pat};
 
+mod lowering;
+mod ops;
 mod types;
 
 #[proc_macro]
@@ -11,6 +13,7 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
         return syn::Error::new_spanned(closure, "graphpack! currently supports exactly one input")
             .to_compile_error().into();
     }
+
     let input = closure.inputs.first().unwrap();
     let (input_name, scalar_type) = match input {
         Pat::Type(pat_type) => {
@@ -27,6 +30,19 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
         _ => return syn::Error::new_spanned(input, "graphpack! inputs must have the form |x: Input<T>| ...").to_compile_error().into(),
     };
 
+    let mut context = lowering::LoweringContext::new(scalar_type);
+    context.values.insert(input_name.to_string(), quote!(input_operation));
+    let body = match &*closure.body {
+        syn::Expr::Block(block) => match context.lower_statements(&block.block.stmts) {
+            Ok(body) => body,
+            Err(error) => return error.to_compile_error().into(),
+        },
+        expr => match context.lower_expr(expr) {
+            Ok(value) => quote!(#value),
+            Err(error) => return error.to_compile_error().into(),
+        },
+    };
+
     let data_type = scalar_type.data_type();
     let input_name_string = input_name.to_string();
 
@@ -39,7 +55,11 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
                 .expect("failed to set input data type");
             let input_operation = input_operation.finish()
                 .expect("failed to finish input operation");
-            let _ = input_operation;
+            let output = { #body };
+            let mut identity = graph.new_operation("Identity", "output")
+                .expect("failed to create output operation");
+            identity.add_input(output);
+            identity.finish().expect("failed to finish output operation");
             graph.graph_def().expect("failed to serialize GraphDef")
         }
     })
