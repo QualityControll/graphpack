@@ -1,3 +1,7 @@
-[workspace]
-members = ["graphpack", "graphpack-macros"]
-resolver = "2"
+[package]
+name = "graphpack"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tensorflow = "0.21.0"
