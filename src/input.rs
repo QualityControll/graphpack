@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use crate::graph::Graph;
 use crate::graph_value::GraphValue;
-use crate::op::{GraphType, Op, OpKind, ReduceKind};
+use crate::op::{GraphType, Op, OpKind};
 
 #[derive(Clone, Copy)] pub struct Input<T> { node: crate::op::NodeId, _marker: PhantomData<fn() -> T> }
 #[derive(Clone, Copy)] pub struct GraphSeq<T> { pub(crate) node: crate::op::NodeId, _marker: PhantomData<fn() -> T> }
@@ -10,25 +10,27 @@ impl<T:GraphType> Input<T> {
  pub fn new(name: impl Into<String>) -> Self { Self { node: crate::graph::insert(Op::new(OpKind::Input{name:name.into(),dtype:T::scalar_type()},Vec::new())), _marker:PhantomData } }
  pub fn map<U,F>(self,f:F)->GraphValue<U> where F:FnOnce(GraphValue<T>)->GraphValue<U>{f(GraphValue::from_node(self.node))}
  pub fn sequence(self)->GraphSeq<T>{GraphSeq::from_node(self.node)}
+ pub fn filter<F>(self,predicate:F)->GraphSeq<T> where F:FnOnce(GraphValue<T>)->GraphValue<bool>{GraphSeq::from_node(crate::graph::insert(Op::new(OpKind::Filter,vec![self.node,predicate(GraphValue::from_node(self.node)).node])))}
+ pub fn take(self,count:usize)->GraphSeq<T>{self.sequence().take(count)} pub fn skip(self,count:usize)->GraphSeq<T>{self.sequence().skip(count)}
+ pub fn sum(self)->GraphValue<T>{self.sequence().sum()} pub fn product(self)->GraphValue<T>{self.sequence().product()} pub fn min(self)->GraphValue<T>{self.sequence().min()} pub fn max(self)->GraphValue<T>{self.sequence().max()} pub fn count(self)->GraphValue<i64>{self.sequence().count()}
+ pub fn fold<U,F>(self,_init:U,_f:F)->GraphValue<U> where F:FnOnce(GraphValue<U>,GraphValue<T>)->GraphValue<U>{todo!("fold lowering is not implemented yet")}
+ pub fn reduce<F>(self,_f:F)->GraphValue<T> where F:FnOnce(GraphValue<T>,GraphValue<T>)->GraphValue<T>{todo!("reduce lowering is not implemented yet")}
+ pub fn collect(self)->tensorflow::Graph{Graph::from_output(self.node).to_tensorflow().expect("failed to lower GraphPack graph to TensorFlow")}
+}
+impl<T> GraphSeq<T>{
+ pub fn map<U,F>(self,f:F)->GraphSeq<U> where F:FnOnce(GraphValue<T>)->GraphValue<U>{GraphSeq::from_node(f(GraphValue::from_node(self.node)).node)}
  pub fn filter<F>(self,predicate:F)->GraphSeq<T> where F:FnOnce(GraphValue<T>)->GraphValue<bool>{let p=predicate(GraphValue::from_node(self.node));GraphSeq::from_node(crate::graph::insert(Op::new(OpKind::Filter,vec![self.node,p.node])))}
- pub fn take(self,count:usize)->GraphSeq<T>{GraphSeq::from_node(crate::graph::insert(Op::new(OpKind::Take{count},vec![self.node])))}
- pub fn skip(self,count:usize)->GraphSeq<T>{GraphSeq::from_node(crate::graph::insert(Op::new(OpKind::Skip{count},vec![self.node])))}
+ pub fn take(self,count:usize)->Self{Self::from_node(crate::graph::insert(Op::new(OpKind::Take{count},vec![self.node])))}
+ pub fn skip(self,count:usize)->Self{Self::from_node(crate::graph::insert(Op::new(OpKind::Skip{count},vec![self.node])))}
+ pub fn enumerate(self)->GraphSeq<(i64,T)>{Self::from_node(crate::graph::insert(Op::new(OpKind::Enumerate,vec![self.node])))}
+ pub fn zip<U>(self,other:GraphSeq<U>)->GraphSeq<(T,U)>{Self::from_node(crate::graph::insert(Op::new(OpKind::Zip,vec![self.node,other.node])))}
  pub fn sum(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceSum,vec![self.node])))}
  pub fn product(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceProduct,vec![self.node])))}
  pub fn min(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceMin,vec![self.node])))}
  pub fn max(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceMax,vec![self.node])))}
  pub fn count(self)->GraphValue<i64>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceCount,vec![self.node])))}
- pub fn fold<U,F>(self,_init:U,_f:F)->GraphValue<U> where F:FnOnce(GraphValue<U>,GraphValue<T>)->GraphValue<U>{todo!("fold lowering is not implemented yet")}
- pub fn reduce<F>(self,_f:F)->GraphValue<T> where F:FnOnce(GraphValue<T>,GraphValue<T>)->GraphValue<T>{todo!("reduce lowering is not implemented yet")}
 }
-impl<T> GraphSeq<T>{
- pub fn take(self,count:usize)->Self{Self::from_node(crate::graph::insert(Op::new(OpKind::Take{count},vec![self.node])))}
- pub fn skip(self,count:usize)->Self{Self::from_node(crate::graph::insert(Op::new(OpKind::Skip{count},vec![self.node])))}
- pub fn filter<F>(self,_predicate:F)->Self{todo!("filter on a GraphSeq is not implemented yet")}
- pub fn enumerate(self)->GraphSeq<(i64,T)>{Self::from_node(crate::graph::insert(Op::new(OpKind::Enumerate,vec![self.node])))}
- pub fn zip<U>(self,other:GraphSeq<U>)->GraphSeq<(T,U)>{Self::from_node(crate::graph::insert(Op::new(OpKind::Zip,vec![self.node,other.node])))}
-}
-impl<T:GraphType> Input<T>{pub fn collect(self)->tensorflow::Graph{Graph::from_output(self.node).to_tensorflow().expect("failed to lower GraphPack graph to TensorFlow")}}
+impl GraphSeq<bool>{pub fn any(self)->GraphValue<bool>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceAny,vec![self.node])))} pub fn all(self)->GraphValue<bool>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceAll,vec![self.node])))}}
 
 pub trait InputTupleMap { type GraphValues; fn map<U,Func>(self,f:Func)->GraphValue<U> where Func:FnOnce(Self::GraphValues)->GraphValue<U>; }
 macro_rules! impl_input_tuple_map { ($(($($input:ident, $value:ident),+)),+ $(,)?) => { $( impl<$($input: GraphType),+> InputTupleMap for ($(Input<$input>,)+) { type GraphValues = ($(GraphValue<$input>,)+); fn map<U, Func>(self, func: Func) -> GraphValue<U> where Func: FnOnce(Self::GraphValues) -> GraphValue<U> { let ($( $value, )+) = self; func(($(GraphValue::from_node($value.node),)+)) } } )+ }; }
