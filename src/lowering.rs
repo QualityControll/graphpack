@@ -300,11 +300,9 @@ fn lower_reduce(
         .get(&op.inputs()[0])
         .ok_or("reduction input was not lowered")?
         .clone();
-    let cast_i32 = matches!(typ, "Min" | "Max") && input_type == Some(ScalarType::I32);
-    if cast_i32 {
-        input = cast(tf, input, DataType::Int64, &format!("{name}_input_i64"))?;
-    }
-    if matches!(typ, "Min" | "Max") && input_type == Some(ScalarType::I64) {
+    let cast_min_max = matches!(typ, "Min" | "Max");
+    let cast_i32 = cast_min_max && input_type == Some(ScalarType::I32);
+    if cast_min_max {
         input = cast(tf, input, DataType::Int64, &format!("{name}_input_i64"))?;
     }
     let axis = const_i32_vec(tf, &format!("{name}_axis"), 0)?;
