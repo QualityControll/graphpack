@@ -23,7 +23,7 @@ impl<T> GraphSeq<T>{
  pub fn take(self,count:usize)->Self{Self::from_node(crate::graph::insert(Op::new(OpKind::Take{count},vec![self.node])))}
  pub fn skip(self,count:usize)->Self{Self::from_node(crate::graph::insert(Op::new(OpKind::Skip{count},vec![self.node])))}
  pub fn enumerate(self)->(GraphSeq<i64>,GraphSeq<T>){let index=crate::graph::insert(Op::new(OpKind::EnumerateIndex,vec![self.node]));let value=crate::graph::insert(Op::new(OpKind::TupleGet{index:1},vec![self.node]));(GraphSeq::from_node(index),GraphSeq::from_node(value))}
- pub fn zip<U>(self,other:GraphSeq<U>)->(GraphSeq<T>,GraphSeq<U>){let left=crate::graph::insert(Op::new(OpKind::ZipLeft,vec![self.node,other.node]));let right=crate::graph::insert(Op::new(OpKind::ZipRight,vec![self.node,other.node]));(GraphSeq::from_node(left),GraphSeq::from_node(right))}
+ pub fn zip<U>(self,other:GraphSeq<U>)->(GraphSeq<T>,GraphSeq<U>){let left=crate::graph::insert(Op::new(OpKind::ZipLeft,vec![self.node,other.node]));let right=crate::graph::insert(Op::new(OpKind::ZipRight,vec![other.node,self.node]));(GraphSeq::from_node(left),GraphSeq::from_node(right))}
  pub fn sum(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceSum,vec![self.node])))}
  pub fn product(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceProduct,vec![self.node])))}
  pub fn min(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceMin,vec![self.node])))}
