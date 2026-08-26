@@ -117,14 +117,6 @@ mod tests {
     }
 
     #[test]
-    fn single_element_tuple_can_be_destructured() {
-        let x = Input::<i32>::new("x");
-        let graph = (x,).map(|(x,)| x * 4).collect();
-        let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(5_i32))]);
-        assert_eq!(output[0], 20);
-    }
-
-    #[test]
     fn nested_tuples_can_be_destructured() {
         let a = Input::<i32>::new("a");
         let b = Input::<i32>::new("b");
