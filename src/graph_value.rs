@@ -16,8 +16,8 @@ impl<T> GraphValue<T> {
     pub(crate) fn from_op(op: Rc<Op>) -> Self { Self { op, _marker: PhantomData } }
     pub(crate) fn op(&self) -> &Rc<Op> { &self.op }
 
-    /// Materializes this value and all of its dependencies into a graph.
-    pub fn materialize(&self) -> Graph { Graph::from_output(self.op.clone()) }
+    /// Completes graph construction and returns the concrete graph.
+    pub fn collect(&self) -> Graph { Graph::from_output(self.op.clone()) }
 }
 
 fn constant<T: IntoConstant>(value: T) -> GraphValue<T> {
