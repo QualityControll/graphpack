@@ -4,7 +4,7 @@ use syn::{parse_macro_input, ExprClosure, Pat};
 
 mod lowering;
 mod ops;
-mod types;
+mod scalar_types;
 
 #[proc_macro]
 pub fn graphpack(input: TokenStream) -> TokenStream {
@@ -25,7 +25,7 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
                         .to_compile_error()
                         .into(),
                 };
-                let scalar_type = match types::ScalarType::from_input_type(&pat_type.ty) {
+                let scalar_type = match scalar_types::ScalarType::from_input_type(&pat_type.ty) {
                     Ok(value) => value,
                     Err(error) => return error.to_compile_error().into(),
                 };
