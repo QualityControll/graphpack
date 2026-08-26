@@ -73,7 +73,7 @@ pub trait GraphValueTupleMap: Sized {
 
     fn map<U, Func>(&self, f: Func) -> U
     where
-        for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U;
+        Func: FnOnce(Self::GraphValues<'_>) -> U;
 }
 
 macro_rules! impl_graph_value_tuple_map {
@@ -85,7 +85,7 @@ macro_rules! impl_graph_value_tuple_map {
 
                 fn map<U, Func>(&self, f: Func) -> U
                 where
-                    for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U,
+                    Func: FnOnce(Self::GraphValues<'_>) -> U,
                 {
                     let ($( $value, )+) = self;
                     f(($( $value, )+))
