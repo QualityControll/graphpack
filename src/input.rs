@@ -1,7 +1,6 @@
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-use crate::graph::Graph;
 use crate::graph_value::GraphValue;
 use crate::op::{Op, OpKind};
 
@@ -24,9 +23,6 @@ impl<T> Input<T> {
         Input { op: Rc::new(Op::new(OpKind::Map, vec![self.op, result.op])), _marker: PhantomData }
     }
 
-    /// Materializes this input and all operations built from it into a graph.
-    pub fn materialize(&self) -> Graph { Graph::from_output(self.op.clone()) }
-
     pub fn filter<F>(self, _predicate: F) -> Input<T>
     where F: FnOnce(&GraphValue<T>) -> GraphValue<bool> {
         todo!("filter graph construction is not implemented yet")
@@ -47,7 +43,10 @@ impl<T> Input<T> {
         todo!("scan graph construction is not implemented yet")
     }
 
-    pub fn collect(self) -> Self { self }
+    /// Completes the lazy pipeline and returns its concrete graph.
+    pub fn collect(self) -> crate::graph::Graph {
+        crate::graph::Graph::from_output(self.op)
+    }
 
     pub(crate) fn op(&self) -> &Rc<Op> { &self.op }
 }
