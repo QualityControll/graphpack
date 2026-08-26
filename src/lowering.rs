@@ -295,10 +295,15 @@ fn lower_reduce(
     name: &str,
     typ: &str,
 ) -> Result<::tensorflow::Operation, String> {
-    let input = lowered
+    let mut input = lowered
         .get(&op.inputs()[0])
         .ok_or("reduction input was not lowered")?
         .clone();
+    if matches!(typ, "Min" | "Max")
+        && node_scalar_type(op.inputs()[0]) == Some(ScalarType::I64)
+    {
+        input = cast(tf, input, DataType::Int64, &format!("{name}_input_i64"))?;
+    }
     let axis = const_i32_vec(tf, &format!("{name}_axis"), 0)?;
     let mut d = tf.new_operation(typ, name).map_err(|e| e.to_string())?;
     d.add_input(input);
