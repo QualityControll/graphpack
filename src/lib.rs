@@ -194,7 +194,7 @@ mod tests {
         let x = Input::<i32>::new("x");
         let tuple = x.map(|v| (v.clone() + 1, v * 2));
         let graph = tuple
-            .map(|(a, b)| (a + b, a * b))
+            .map(|(a, b)| (a.clone() + b.clone(), a * b))
             .map(|(sum, product)| sum + product)
             .collect();
         let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(4_i32))]);
