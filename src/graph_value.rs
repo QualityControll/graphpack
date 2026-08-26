@@ -49,6 +49,9 @@ macro_rules! impl_bitwise_ops {
         impl BitOr for GraphValue<$t> { type Output = GraphValue<$t>; fn bitor(self, rhs: Self) -> Self::Output { binary_op(self, rhs, OpKind::BitOr) } }
         impl BitXor for GraphValue<$t> { type Output = GraphValue<$t>; fn bitxor(self, rhs: Self) -> Self::Output { binary_op(self, rhs, OpKind::BitXor) } }
         impl Not for GraphValue<$t> { type Output = GraphValue<$t>; fn not(self) -> Self::Output { unary_op(self, OpKind::BitwiseNot) } }
+        impl BitAnd<$t> for GraphValue<$t> { type Output = GraphValue<$t>; fn bitand(self, rhs: $t) -> Self::Output { binary_op(self, constant(rhs), OpKind::BitAnd) } }
+        impl BitOr<$t> for GraphValue<$t> { type Output = GraphValue<$t>; fn bitor(self, rhs: $t) -> Self::Output { binary_op(self, constant(rhs), OpKind::BitOr) } }
+        impl BitXor<$t> for GraphValue<$t> { type Output = GraphValue<$t>; fn bitxor(self, rhs: $t) -> Self::Output { binary_op(self, constant(rhs), OpKind::BitXor) } }
     )+ };
 }
 impl_bitwise_ops!(i32, i64);
