@@ -16,9 +16,6 @@ fn run_graph<T: tensorflow::TensorType>(
     let options = tensorflow::ImportGraphDefOptions::new();
     graph.import_graph_def(graph_def, &options)?;
 
-    let session_options = tensorflow::SessionOptions::new();
-    let session = tensorflow::Session::new(&session_options, &graph)?;
-
     let tensors: Vec<tensorflow::Tensor<T>> = inputs
         .iter()
         .map(|(_, values)| {
@@ -115,6 +112,32 @@ mod tests {
 
         let output = run_graph(&graph_def, &[("x", &[1.0f32, 2.0, 3.0])], "output").unwrap();
         assert_eq!(output.as_ref(), &[1.0f32, 0.0, -1.0]);
+    }
+
+    #[test]
+    fn graphpack_if_else_runs() {
+        let graph_def = graphpack!(|x: Input<f32>| {
+            if x > 0.0 { x * 2.0 } else { x - 2.0 }
+        });
+
+        let output = run_graph(
+            &graph_def,
+            &[("x", &[1.0f32, -2.0, 3.0])],
+            "output",
+        )
+        .unwrap();
+        assert_eq!(output.as_ref(), &[2.0f32, -4.0, 6.0]);
+    }
+
+    #[test]
+    fn graphpack_if_else_with_let_bindings_runs() {
+        let graph_def = graphpack!(|x: Input<f32>| {
+            let doubled = x * 2.0;
+            if x > 0.0 { doubled + 1.0 } else { doubled - 1.0 }
+        });
+
+        let output = run_graph(&graph_def, &[("x", &[1.0f32, -2.0])], "output").unwrap();
+        assert_eq!(output.as_ref(), &[3.0f32, -5.0]);
     }
 
     #[test]
