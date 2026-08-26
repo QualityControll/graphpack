@@ -27,9 +27,10 @@ impl<T: GraphType> Input<T> {
 
     pub fn map<U, F>(self, f: F) -> U
     where
-        F: FnOnce(GraphValue<T>) -> U,
+        F: FnOnce(&GraphValue<T>) -> U,
     {
-        f(GraphValue::from_op(self.op))
+        let value = GraphValue::from_op(self.op);
+        f(&value)
     }
 
     pub fn filter<F>(self, predicate: F) -> GraphValue<T>
@@ -95,7 +96,8 @@ macro_rules! impl_input_tuple_map {
                     Func: FnOnce(Self::GraphValues) -> U,
                 {
                     let ($( $value, )+) = self;
-                    f(($(GraphValue::from_op($value.op),)+))
+                    let values = ($(GraphValue::from_op($value.op),)+);
+                    f(values)
                 }
             }
         )+
@@ -164,12 +166,12 @@ impl<
         (GraphValue<E>, GraphValue<F>, GraphValue<G>, GraphValue<H>),
     );
 
-    fn map<U, Func>(self, func: Func) -> U
+    fn map<U, Func>(self, f: Func) -> U
     where
         Func: FnOnce(Self::GraphValues) -> U,
     {
         let ((a, b, c, d), (e, f, g, h)) = self;
-        func((
+        f((
             (
                 GraphValue::from_op(a.op),
                 GraphValue::from_op(b.op),
