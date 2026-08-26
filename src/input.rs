@@ -242,8 +242,6 @@ impl<T> GraphSeq<T> {
         match result.op().kind() {
             OpKind::Add => self.sum(),
             OpKind::Mul => self.product(),
-            OpKind::LogicalAnd => self.all(),
-            OpKind::LogicalOr => self.any(),
             _ => panic!("unsupported reduce closure; use + or *"),
         }
     }
@@ -260,6 +258,18 @@ impl GraphSeq<bool> {
             OpKind::ReduceAll,
             vec![self.node],
         )))
+    }
+    pub fn reduce<F>(self, f: F) -> GraphValue<bool>
+    where
+        F: FnOnce(GraphValue<bool>, GraphValue<bool>) -> GraphValue<bool>,
+    {
+        let node = self.node;
+        let result = f(GraphValue::from_node(node), GraphValue::from_node(node));
+        match result.op().kind() {
+            OpKind::LogicalAnd => self.all(),
+            OpKind::LogicalOr => self.any(),
+            _ => panic!("unsupported boolean reduce closure; use && or ||"),
+        }
     }
 }
 
