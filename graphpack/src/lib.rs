@@ -1,14 +1,13 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+pub use graphpack_macros::graphpack;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::graphpack;
 
     #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+    fn graphpack_unit_closure_produces_graph_def() {
+        let graph_def = graphpack!(|| {});
+
+        assert!(!graph_def.is_empty());
     }
 }
