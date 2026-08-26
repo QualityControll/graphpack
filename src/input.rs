@@ -242,6 +242,8 @@ impl<T> GraphSeq<T> {
         match result.op().kind() {
             OpKind::Add => self.sum(),
             OpKind::Mul => self.product(),
+            OpKind::LogicalAnd => self.all(),
+            OpKind::LogicalOr => self.any(),
             _ => panic!("unsupported reduce closure; use + or *"),
         }
     }
