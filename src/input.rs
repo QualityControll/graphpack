@@ -79,9 +79,9 @@ impl<T: GraphType> Input<T> {
 pub trait InputTupleMap {
     type GraphValues;
 
-    fn map<U, F>(self, f: F) -> GraphValue<U>
+    fn map<U, Func>(self, f: Func) -> GraphValue<U>
     where
-        F: FnOnce(Self::GraphValues) -> GraphValue<U>;
+        Func: FnOnce(Self::GraphValues) -> GraphValue<U>;
 }
 
 macro_rules! impl_input_tuple_map {
@@ -90,9 +90,9 @@ macro_rules! impl_input_tuple_map {
             impl<$($input: GraphType),+> InputTupleMap for ($(Input<$input>,)+) {
                 type GraphValues = ($(GraphValue<$input>,)+);
 
-                fn map<U, F>(self, f: F) -> GraphValue<U>
+                fn map<U, Func>(self, f: Func) -> GraphValue<U>
                 where
-                    F: FnOnce(Self::GraphValues) -> GraphValue<U>,
+                    Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
                 {
                     let ($( $value, )+) = self;
                     f(($(GraphValue::from_op($value.op),)+))
