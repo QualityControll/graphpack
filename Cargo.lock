@@ -269,6 +269,7 @@ dependencies = [
 name = "graphpack"
 version = "0.1.0"
 dependencies = [
+ "num-complex",
  "tensorflow",
 ]
 
