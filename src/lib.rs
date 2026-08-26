@@ -22,8 +22,8 @@ mod tests {
         assert!(graph.operation_by_name("x").is_ok());
         assert!(graph.operation_by_name("output").is_ok());
 
-        let x_op = graph.operation_by_name("x").unwrap();
-        let output_op = graph.operation_by_name("output").unwrap();
+        let x_op = graph.operation_by_name("x").unwrap().unwrap();
+        let output_op = graph.operation_by_name("output").unwrap().unwrap();
 
         let mut args = SessionRunArgs::new();
         args.add_feed(&x_op, 0, &Tensor::from(3.0_f32));
