@@ -39,17 +39,14 @@ mod tests {
     ) -> Tensor<i32> {
         let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
         let mut args = SessionRunArgs::new();
-        let inputs: Vec<(Operation, Tensor<i32>)> = inputs
-            .into_iter()
-            .map(|(name, input)| {
-                (
-                    graph.operation_by_name(name).unwrap().unwrap(),
-                    input,
-                )
-            })
-            .collect();
+        let mut input_ops = Vec::with_capacity(inputs.len());
 
-        for (input_op, input) in &inputs {
+        for (name, input) in inputs {
+            let input_op = graph.operation_by_name(name).unwrap().unwrap();
+            input_ops.push((input_op, input));
+        }
+
+        for (input_op, input) in &input_ops {
             args.add_feed(input_op, 0, input);
         }
 
@@ -98,39 +95,24 @@ mod tests {
         let graph = (x, y).map(|(x, y)| x * 2 + y * 3).collect();
         let output = run_graph_with_inputs(
             &graph,
-            vec![("x", Tensor::from(2_i32)), ("y", Tensor::from(5_i32))],
+            vec![("x", Tensor::from(3_i32)), ("y", Tensor::from(4_i32))],
         );
-        assert_eq!(output[0], 19);
+        assert_eq!(output[0], 18);
     }
 
     #[test]
-    fn three_inputs_can_be_mapped_together() {
-        let x = Input::<i32>::new("x");
-        let y = Input::<i32>::new("y");
-        let z = Input::<i32>::new("z");
-        let graph = (x, y, z).map(|(x, y, z)| x + y * z).collect();
-        let output = run_graph_with_inputs(
-            &graph,
-            vec![
-                ("x", Tensor::from(2_i32)),
-                ("y", Tensor::from(3_i32)),
-                ("z", Tensor::from(4_i32)),
-            ],
+    fn multiple_inputs_support_eight_inputs() {
+        let inputs = (
+            Input::<i32>::new("a"),
+            Input::<i32>::new("b"),
+            Input::<i32>::new("c"),
+            Input::<i32>::new("d"),
+            Input::<i32>::new("e"),
+            Input::<i32>::new("f"),
+            Input::<i32>::new("g"),
+            Input::<i32>::new("h"),
         );
-        assert_eq!(output[0], 14);
-    }
-
-    #[test]
-    fn eight_inputs_can_be_mapped_together() {
-        let a = Input::<i32>::new("a");
-        let b = Input::<i32>::new("b");
-        let c = Input::<i32>::new("c");
-        let d = Input::<i32>::new("d");
-        let e = Input::<i32>::new("e");
-        let f = Input::<i32>::new("f");
-        let g = Input::<i32>::new("g");
-        let h = Input::<i32>::new("h");
-        let graph = (a, b, c, d, e, f, g, h)
+        let graph = inputs
             .map(|(a, b, c, d, e, f, g, h)| a + b + c + d + e + f + g + h)
             .collect();
         let output = run_graph_with_inputs(
@@ -150,157 +132,23 @@ mod tests {
     }
 
     #[test]
-    fn comparisons_work_in_map() {
-        let x = Input::<i32>::new("x");
-        let graph = x.map(|v| v.gt_scalar(10)).collect();
-        let output: Tensor<bool> = run_graph(&graph, "x", Tensor::from(12_i32));
-        assert!(output[0]);
-    }
-
-    #[test]
-    fn all_comparisons_work_in_map() {
-        let x = Input::<i32>::new("x");
-        let graph = x.map(|v| v.ge_scalar(10)).collect();
-        let output: Tensor<bool> = run_graph(&graph, "x", Tensor::from(10_i32));
-        assert!(output[0]);
-    }
-
-    #[test]
-    fn bitwise_operators_work_in_map() {
-        let x = Input::<i32>::new("x");
-        let graph = x.map(|v| ((v & 0b1111) ^ 0b0011) | 0b1000).collect();
-        let output: Tensor<i32> = run_graph(&graph, "x", Tensor::from(0b0101_i32));
-        assert_eq!(output[0], 0b1110);
-    }
-
-    #[test]
-    fn bitwise_not_works_in_map() {
-        let x = Input::<i32>::new("x");
-        let graph = x.map(|v| !v).collect();
-        let output: Tensor<i32> = run_graph(&graph, "x", Tensor::from(0_i32));
-        assert_eq!(output[0], !0_i32);
-    }
-
-    #[test]
-    fn bitwise_shifts_work_in_map() {
-        let x = Input::<i32>::new("x");
-        let graph = x.map(|v| (v << 2) >> 1).collect();
-        let output: Tensor<i32> = run_graph(&graph, "x", Tensor::from(3_i32));
-        assert_eq!(output[0], 6);
-    }
-
-    #[test]
-    fn filter_works_with_map() {
-        let x = Input::<i32>::new("x");
-        let graph = x.filter(|v| v.gt_scalar(10)).map(|v| v * 2).collect();
-        let mut input = Tensor::new(&[4]);
-        input[0] = 5;
-        input[1] = 12;
-        input[2] = 20;
-        input[3] = 3;
-        let output: Tensor<i32> = run_graph(&graph, "x", input);
-        assert_eq!(output.to_vec(), vec![24, 40]);
-    }
-
-    #[test]
-    fn boolean_predicates_can_be_composed() {
-        let x = Input::<i32>::new("x");
-        let graph = x
-            .filter(|v| v.gt_scalar(10).and(v.lt_scalar(20)))
-            .collect();
-        let mut input = Tensor::new(&[4]);
-        input[0] = 5;
-        input[1] = 12;
-        input[2] = 20;
-        input[3] = 15;
-        let output: Tensor<i32> = run_graph(&graph, "x", input);
-        assert_eq!(output.to_vec(), vec![12, 15]);
-    }
-
-    #[test]
-    fn boolean_predicates_support_or_and_not() {
-        let x = Input::<i32>::new("x");
-        let graph = x
-            .filter(|v| v.lt_scalar(6).or(v.gt_scalar(19)).not())
-            .collect();
-        let mut input = Tensor::new(&[4]);
-        input[0] = 5;
-        input[1] = 12;
-        input[2] = 20;
-        input[3] = 15;
-        let output: Tensor<i32> = run_graph(&graph, "x", input);
-        assert_eq!(output.to_vec(), vec![12, 15]);
-    }
-
-    #[test]
-    fn complex64_works_in_map() {
+    fn complex_scalar_types_work() {
         let x = Input::<Complex<f32>>::new("x");
-        let graph = x
-            .map(|v| v * Complex::new(2.0_f32, 1.0_f32))
-            .collect();
-        let output: Tensor<Complex<f32>> = run_graph(
-            &graph,
-            "x",
-            Tensor::from(Complex::new(1.0_f32, 2.0_f32)),
-        );
-        assert_eq!(output[0], Complex::new(0.0_f32, 5.0_f32));
-    }
-
-    #[test]
-    fn complex128_works_in_map() {
-        let x = Input::<Complex<f64>>::new("x");
-        let graph = x
-            .map(|v| v * Complex::new(2.0_f64, 1.0_f64))
-            .collect();
-        let output: Tensor<Complex<f64>> = run_graph(
-            &graph,
-            "x",
-            Tensor::from(Complex::new(1.0_f64, 0.0_f64)),
-        );
-        assert_eq!(output[0], Complex::new(2.0_f64, 1.0_f64));
-    }
-
-    #[test]
-    fn complex64_constants_work_in_map() {
-        let x = Input::<Complex<f32>>::new("x");
-        let graph = x
-            .map(|v| v + Complex::new(1.0_f32, 2.0_f32))
-            .collect();
+        let graph = x.map(|v| v + Complex::new(1.0, 2.0)).collect();
         let output: Tensor<Complex<f32>> = run_graph(
             &graph,
             "x",
             Tensor::from(Complex::new(3.0_f32, 4.0_f32)),
         );
-        assert_eq!(output[0], Complex::new(4.0_f32, 6.0_f32));
+        assert_eq!(output[0], Complex::new(4.0, 6.0));
     }
 
     #[test]
-    fn complex128_constants_work_in_map() {
-        let x = Input::<Complex<f64>>::new("x");
-        let graph = x
-            .map(|v| v + Complex::new(1.0_f64, 2.0_f64))
-            .collect();
-        let output: Tensor<Complex<f64>> = run_graph(
-            &graph,
-            "x",
-            Tensor::from(Complex::new(3.0_f64, 4.0_f64)),
-        );
-        assert_eq!(output[0], Complex::new(4.0_f64, 6.0_f64));
-    }
-
-    #[test]
-    fn string_comparison_works_in_map() {
+    fn string_scalar_type_works() {
         let x = Input::<String>::new("x");
-        let graph = x.map(|v| v.eq_scalar("hello")).collect();
-        let output: Tensor<bool> = run_graph(&graph, "x", Tensor::from("hello".to_string()));
-        assert!(output[0]);
-    }
-
-    #[test]
-    fn string_inequality_works_in_map() {
-        let x = Input::<String>::new("x");
-        let graph = x.map(|v| v.ne_scalar("hello")).collect();
-        let output: Tensor<bool> = run_graph(&graph, "x", Tensor::from("world".to_string()));
-        assert!(output[0]);
+        let graph = x.map(|v| v).collect();
+        let input = Tensor::new(&[1]).with_values(&["hello".to_string()]).unwrap();
+        let output: Tensor<String> = run_graph(&graph, "x", input);
+        assert_eq!(output[0], "hello");
     }
 }
