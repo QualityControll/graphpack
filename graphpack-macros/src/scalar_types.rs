@@ -54,7 +54,7 @@ impl ScalarType {
         match self {
             Self::F32 => quote!(f32),
             Self::I32 => quote!(i32),
-            Self::Complex64 => quote!(::tensorflow::Complex64),
+            Self::Complex64 => quote!(::num_complex::Complex<f32>),
         }
     }
 }
