@@ -25,8 +25,9 @@ mod tests {
     ) -> Tensor<U> {
         let x_op: Operation = graph.operation_by_name(input_name).unwrap().unwrap();
         let output_op: Operation = match graph.operation_by_name("output") {
-            Some(operation) => operation.unwrap(),
-            None => x_op.clone(),
+            Ok(Some(operation)) => operation,
+            Ok(None) => x_op.clone(),
+            Err(error) => panic!("failed to find output operation: {error}"),
         };
         let mut args = SessionRunArgs::new();
         args.add_feed(&x_op, 0, &input);
