@@ -6,40 +6,25 @@ mod tensorflow;
 
 pub use graph::Graph;
 pub use graph_value::GraphValue;
-pub use input::{Input, InputTupleMap};
-pub use op::{ConstantValue, GraphType, Op, OpKind, ScalarType};
+pub use input::{GraphSeq, Input, InputTupleMap};
+pub use op::{ConstantValue, GraphType, Op, OpKind, ReduceKind, ScalarType};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use ::tensorflow::{Graph as TensorFlowGraph, Operation, Session, SessionOptions, SessionRunArgs, Tensor, TensorType};
     use num_complex::Complex;
-
-    fn run_graph<T: TensorType, U: TensorType>(graph: &TensorFlowGraph, inputs: Vec<(&str, Tensor<T>)>) -> Tensor<U> {
-        let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
-        let mut input_ops = Vec::with_capacity(inputs.len());
-        for (name, input) in inputs { let input_op = graph.operation_by_name(name).unwrap().unwrap(); input_ops.push((input_op, input)); }
-        let mut args = SessionRunArgs::new();
-        for (input_op, input) in &input_ops { args.add_feed(input_op, 0, input); }
-        let token = args.request_fetch(&output_op, 0);
-        let session = Session::new(&SessionOptions::new(), graph).unwrap();
-        session.run(&mut args).unwrap();
-        args.fetch(token).unwrap()
-    }
-
-    #[test] fn map_lowers_to_executable_tensorflow_graph() { let x=Input::<f32>::new("x"); let graph=x.map(|v|v*2.0+1.0).collect(); let output:Tensor<f32>=run_graph(&graph,vec![("x",Tensor::from(3.0_f32))]); assert_eq!(output[0],7.0); }
-    #[test] fn chained_map_lowers_to_tensorflow_graph() { let x=Input::<f32>::new("x"); let graph=x.map(|v|v*2.0).map(|v|v+1.0).map(|v|v*3.0).collect(); let output:Tensor<f32>=run_graph(&graph,vec![("x",Tensor::from(3.0_f32))]); assert_eq!(output[0],21.0); }
-    #[test] fn multiple_inputs_can_be_mapped_together() { let x=Input::<i32>::new("x"); let y=Input::<i32>::new("y"); let graph=(x,y).map(|(x,y)|x+y).collect(); let output:Tensor<i32>=run_graph(&graph,vec![("x",Tensor::from(3_i32)),("y",Tensor::from(4_i32))]); assert_eq!(output[0],7); }
-    #[test] fn multiple_inputs_can_be_used_in_a_complex_expression() { let x=Input::<i32>::new("x"); let y=Input::<i32>::new("y"); let graph=(x,y).map(|(x,y)|x*2+y*3).collect(); let output:Tensor<i32>=run_graph(&graph,vec![("x",Tensor::from(3_i32)),("y",Tensor::from(4_i32))]); assert_eq!(output[0],18); }
-    #[test] fn multiple_inputs_support_eight_inputs() { let inputs=(Input::<i32>::new("a"),Input::<i32>::new("b"),Input::<i32>::new("c"),Input::<i32>::new("d"),Input::<i32>::new("e"),Input::<i32>::new("f"),Input::<i32>::new("g"),Input::<i32>::new("h")); let graph=inputs.map(|(a,b,c,d,e,f,g,h)|a+b+c+d+e+f+g+h).collect(); let output:Tensor<i32>=run_graph(&graph,vec![("a",Tensor::from(1_i32)),("b",Tensor::from(2_i32)),("c",Tensor::from(3_i32)),("d",Tensor::from(4_i32)),("e",Tensor::from(5_i32)),("f",Tensor::from(6_i32)),("g",Tensor::from(7_i32)),("h",Tensor::from(8_i32))]); assert_eq!(output[0],36); }
-    #[test] fn nested_tuples_can_be_destructured() { let a=Input::<i32>::new("a");let b=Input::<i32>::new("b");let c=Input::<i32>::new("c");let d=Input::<i32>::new("d");let graph=((a,b),(c,d)).map(|((a,b),(c,d))|a*b+c*d).collect();let output:Tensor<i32>=run_graph(&graph,vec![("a",Tensor::from(2_i32)),("b",Tensor::from(3_i32)),("c",Tensor::from(4_i32)),("d",Tensor::from(5_i32))]);assert_eq!(output[0],26); }
-    #[test] fn nested_four_input_tuples_can_be_destructured() { let a=Input::<i32>::new("a");let b=Input::<i32>::new("b");let c=Input::<i32>::new("c");let d=Input::<i32>::new("d");let e=Input::<i32>::new("e");let f=Input::<i32>::new("f");let g=Input::<i32>::new("g");let h=Input::<i32>::new("h");let graph=((a,b,c,d),(e,f,g,h)).map(|((a,b,c,d),(e,f,g,h))|a+b*c+d+e+f*g+h).collect();let output:Tensor<i32>=run_graph(&graph,vec![("a",Tensor::from(1_i32)),("b",Tensor::from(2_i32)),("c",Tensor::from(3_i32)),("d",Tensor::from(4_i32)),("e",Tensor::from(5_i32)),("f",Tensor::from(6_i32)),("g",Tensor::from(7_i32)),("h",Tensor::from(8_i32))]);assert_eq!(output[0],66); }
-    #[test] fn tuple_inputs_can_be_reused_in_richer_expressions() { let x=Input::<i32>::new("x");let y=Input::<i32>::new("y");let graph=(x,y).map(|(x,y)|(x*x)+(y*y)+(x*y)).collect();let output:Tensor<i32>=run_graph(&graph,vec![("x",Tensor::from(2_i32)),("y",Tensor::from(3_i32))]);assert_eq!(output[0],19); }
-    #[test] fn complex_scalar_types_work() { let x=Input::<Complex<f32>>::new("x");let graph=x.map(|v|v+Complex::new(1.0,2.0)).collect();let output:Tensor<Complex<f32>>=run_graph(&graph,vec![("x",Tensor::from(Complex::new(3.0_f32,4.0_f32)))]);assert_eq!(output[0],Complex::new(4.0,6.0)); }
-    #[test] fn string_scalar_type_works() { let x=Input::<String>::new("x");let graph=x.map(|v|v.eq_scalar("hello")).collect();let input=Tensor::new(&[1]).with_values(&["hello".to_string()]).unwrap();let output:Tensor<bool>=run_graph(&graph,vec![("x",input)]);assert!(output[0]); }
-
-    #[test] fn i8_scalar_type_works() { let x=Input::<i8>::new("x"); let graph=x.map(|v|v*2_i8+1_i8).collect(); let output:Tensor<i8>=run_graph(&graph,vec![("x",Tensor::from(3_i8))]); assert_eq!(output[0],7); }
-    #[test] fn u8_scalar_type_works() { let x=Input::<u8>::new("x"); let graph=x.map(|v|v*2_u8+1_u8).collect(); let output:Tensor<u8>=run_graph(&graph,vec![("x",Tensor::from(3_u8))]); assert_eq!(output[0],7); }
-    #[test] fn i16_scalar_type_works() { let x=Input::<i16>::new("x"); let graph=x.map(|v|v*2_i16+1_i16).collect(); let output:Tensor<i16>=run_graph(&graph,vec![("x",Tensor::from(3_i16))]); assert_eq!(output[0],7); }
-    #[test] fn u16_scalar_type_works() { let x=Input::<u16>::new("x"); let graph=x.map(|v|v*2_u16+1_u16).collect(); let output:Tensor<u16>=run_graph(&graph,vec![("x",Tensor::from(3_u16))]); assert_eq!(output[0],7); }
+    fn run_graph<T: TensorType, U: TensorType>(graph:&TensorFlowGraph,inputs:Vec<(&str,Tensor<T>)>)->Tensor<U>{let output_op:Operation=graph.operation_by_name("output").unwrap().unwrap();let mut args=SessionRunArgs::new();for(name,input)in &inputs{let op=graph.operation_by_name(name).unwrap().unwrap();args.add_feed(&op,0,input);}let token=args.request_fetch(&output_op,0);let session=Session::new(&SessionOptions::new(),graph).unwrap();session.run(&mut args).unwrap();args.fetch(token).unwrap()}
+    #[test] fn map_lowers_to_executable_tensorflow_graph(){let x=Input::<f32>::new("x");let graph=x.map(|v|v*2.0+1.0).collect();let output:Tensor<f32>=run_graph(&graph,vec![("x",Tensor::from(3.0_f32))]);assert_eq!(output[0],7.0);}
+    #[test] fn chained_map_lowers_to_tensorflow_graph(){let x=Input::<f32>::new("x");let graph=x.map(|v|v*2.0).map(|v|v+1.0).map(|v|v*3.0).collect();let output:Tensor<f32>=run_graph(&graph,vec![("x",Tensor::from(3.0_f32))]);assert_eq!(output[0],21.0);}
+    #[test] fn multiple_inputs_can_be_mapped_together(){let x=Input::<i32>::new("x");let y=Input::<i32>::new("y");let graph=(x,y).map(|(x,y)|x+y).collect();let output:Tensor<i32>=run_graph(&graph,vec![("x",Tensor::from(3_i32)),("y",Tensor::from(4_i32))]);assert_eq!(output[0],7);}
+    #[test] fn nested_tuples_can_be_destructured(){let a=Input::<i32>::new("a");let b=Input::<i32>::new("b");let c=Input::<i32>::new("c");let d=Input::<i32>::new("d");let graph=((a,b),(c,d)).map(|((a,b),(c,d))|a*b+c*d).collect();let output:Tensor<i32>=run_graph(&graph,vec![("a",Tensor::from(2_i32)),("b",Tensor::from(3_i32)),("c",Tensor::from(4_i32)),("d",Tensor::from(5_i32))]);assert_eq!(output[0],26);}
+    #[test] fn filter_works(){let x=Input::<i32>::new("x");let graph=x.filter(|v|v.gt_scalar(2)).collect();let output:Tensor<i32>=run_graph(&graph,vec![("x",Tensor::new(&[5]).with_values(&[1,2,3,4,5]).unwrap())]);assert_eq!(output.to_vec(),vec![3,4,5]);}
+    #[test] fn take_works(){let x=Input::<i32>::new("x");let graph=x.take(3).collect();let output:Tensor<i32>=run_graph(&graph,vec![("x",Tensor::new(&[5]).with_values(&[1,2,3,4,5]).unwrap())]);assert_eq!(output.to_vec(),vec![1,2,3]);}
+    #[test] fn skip_works(){let x=Input::<i32>::new("x");let graph=x.skip(2).collect();let output:Tensor<i32>=run_graph(&graph,vec![("x",Tensor::new(&[5]).with_values(&[1,2,3,4,5]).unwrap())]);assert_eq!(output.to_vec(),vec![3,4,5]);}
+    #[test] fn reductions_work(){let x=Input::<i32>::new("x");let graph=(x.sequence().sum()).collect();let output:Tensor<i32>=run_graph(&graph,vec![("x",Tensor::new(&[4]).with_values(&[1,2,3,4]).unwrap())]);assert_eq!(output[0],10);}
+    #[test] fn count_works(){let x=Input::<i32>::new("x");let graph=x.count().collect();let output:Tensor<i64>=run_graph(&graph,vec![("x",Tensor::new(&[4]).with_values(&[1,2,3,4]).unwrap())]);assert_eq!(output[0],4);}
+    #[test] fn any_all_work(){let x=Input::<bool>::new("x");let any=x.sequence().any().collect();let all=x.sequence().all().collect();let out_any:Tensor<bool>=run_graph(&any,vec![("x",Tensor::new(&[3]).with_values(&[false,true,false]).unwrap())]);let out_all:Tensor<bool>=run_graph(&all,vec![("x",Tensor::new(&[3]).with_values(&[false,true,false]).unwrap())]);assert!(out_any[0]);assert!(!out_all[0]);}
+    #[test] fn scalar_types_still_work(){let x=Input::<i8>::new("x");let graph=x.map(|v|v*2_i8+1_i8).collect();let output:Tensor<i8>=run_graph(&graph,vec![("x",Tensor::from(3_i8))]);assert_eq!(output[0],7);}
+    #[allow(dead_code)] fn _keep_complex_type(_:Complex<f32>){}
 }
