@@ -6,8 +6,12 @@ pub struct Input<T> {
     _marker: PhantomData<T>,
 }
 
-/// Runs a serialized GraphDef in a local TensorFlow session, feeding f32 inputs.
-pub fn run_graph(graph_def: &[u8], inputs: &[(&str, &[f32])]) -> tensorflow::Result<()> {
+/// Runs a serialized GraphDef in a local TensorFlow session and fetches an f32 output.
+pub fn run_graph(
+    graph_def: &[u8],
+    inputs: &[(&str, &[f32])],
+    output: &str,
+) -> tensorflow::Result<tensorflow::Tensor<f32>> {
     let mut graph = tensorflow::Graph::new();
     let options = tensorflow::ImportGraphDefOptions::new();
     graph.import_graph_def(graph_def, &options)?;
@@ -30,7 +34,10 @@ pub fn run_graph(graph_def: &[u8], inputs: &[(&str, &[f32])]) -> tensorflow::Res
         args.add_feed(&operation, 0, tensor);
     }
 
-    session.run(&mut args)
+    let output_operation = graph.operation_by_name_required(output)?;
+    let output_token = args.request_fetch(&output_operation, 0);
+    session.run(&mut args)?;
+    args.fetch(output_token)
 }
 
 #[cfg(test)]
@@ -38,9 +45,11 @@ mod tests {
     use super::{graphpack, run_graph, Input};
 
     #[test]
-    fn graphpack_input_graph_imports_and_runs() {
-        let graph_def = graphpack!(|x: Input<f32>| {});
+    fn graphpack_input_graph_runs() {
+        let graph_def = graphpack!(|x: Input<f32>| x + 1.0);
 
-        run_graph(&graph_def, &[("x", &[1.0, 2.0, 3.0])]).unwrap();
+        let output = run_graph(&graph_def, &[("x", &[1.0, 2.0, 3.0])], "output").unwrap();
+
+        assert_eq!(output.as_ref(), &[2.0, 3.0, 4.0]);
     }
 }
