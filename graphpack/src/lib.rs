@@ -42,7 +42,13 @@ fn run_graph<T: tensorflow::TensorType>(
 
 #[cfg(test)]
 mod tests {
-    use super::{graphpack, run_graph,  Input};
+    use std::marker::PhantomData;
+
+    use super::{graphpack, run_graph, Input};
+
+    // The macro only needs the Rust type syntax to identify Complex<f32> when
+    // constructing the graph. TensorFlow's runtime dtype is validated below.
+    struct Complex<T>(PhantomData<T>);
 
     #[test]
     fn graphpack_multi_line_arithmetic_runs() {
@@ -109,5 +115,54 @@ mod tests {
 
         let output = run_graph(&graph_def, &[("x", &[1.0f32, 2.0, 3.0])], "output").unwrap();
         assert_eq!(output.as_ref(), &[1.0f32, 0.0, -1.0]);
+    }
+
+    #[test]
+    fn graphpack_complex64_input_has_complex_dtype() {
+        let graph_def = graphpack!(|x: Input<Complex<f32>>| x + x);
+
+        let mut graph = tensorflow::Graph::new();
+        let options = tensorflow::ImportGraphDefOptions::new();
+        graph.import_graph_def(&graph_def, &options).unwrap();
+
+        let input = graph.operation_by_name_required("x").unwrap();
+        let output = graph.operation_by_name_required("output").unwrap();
+
+        assert_eq!(input.output_type(0), tensorflow::DataType::Complex64);
+        assert_eq!(output.output_type(0), tensorflow::DataType::Complex64);
+    }
+
+    #[test]
+    fn graphpack_multiple_complex64_inputs_have_complex_dtype() {
+        let graph_def = graphpack!(|x: Input<Complex<f32>>, y: Input<Complex<f32>>| {
+            let sum = x + y;
+            sum * x
+        });
+
+        let mut graph = tensorflow::Graph::new();
+        let options = tensorflow::ImportGraphDefOptions::new();
+        graph.import_graph_def(&graph_def, &options).unwrap();
+
+        assert_eq!(
+            graph
+                .operation_by_name_required("x")
+                .unwrap()
+                .output_type(0),
+            tensorflow::DataType::Complex64
+        );
+        assert_eq!(
+            graph
+                .operation_by_name_required("y")
+                .unwrap()
+                .output_type(0),
+            tensorflow::DataType::Complex64
+        );
+        assert_eq!(
+            graph
+                .operation_by_name_required("output")
+                .unwrap()
+                .output_type(0),
+            tensorflow::DataType::Complex64
+        );
     }
 }
