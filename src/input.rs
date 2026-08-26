@@ -50,6 +50,28 @@ impl<A, B> GraphSeq2<A, B> {
         ));
         GraphSeq::from_node(value.node)
     }
+    pub fn filter<F>(self, predicate: F) -> GraphSeq2<A, B>
+    where
+        F: FnOnce((GraphValue<A>, GraphValue<B>)) -> GraphValue<bool>,
+    {
+        let p = predicate((
+            GraphValue::from_node(self.left),
+            GraphValue::from_node(self.right),
+        ));
+        let left = crate::graph::insert(Op::new(OpKind::Filter, vec![self.left, p.node]));
+        let right = crate::graph::insert(Op::new(OpKind::Filter, vec![self.right, p.node]));
+        GraphSeq2::from_nodes(left, right)
+    }
+    pub fn take(self, count: usize) -> GraphSeq2<A, B> {
+        let left = crate::graph::insert(Op::new(OpKind::Take { count }, vec![self.left]));
+        let right = crate::graph::insert(Op::new(OpKind::Take { count }, vec![self.right]));
+        GraphSeq2::from_nodes(left, right)
+    }
+    pub fn skip(self, count: usize) -> GraphSeq2<A, B> {
+        let left = crate::graph::insert(Op::new(OpKind::Skip { count }, vec![self.left]));
+        let right = crate::graph::insert(Op::new(OpKind::Skip { count }, vec![self.right]));
+        GraphSeq2::from_nodes(left, right)
+    }
 }
 impl<T: GraphType> Input<T> {
     pub fn new(name: impl Into<String>) -> Self {

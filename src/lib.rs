@@ -111,6 +111,71 @@ mod tests {
         assert_eq!(output.to_vec(), vec![11, 22, 33]);
     }
     #[test]
+    fn enumerate_filter_then_map_is_composable() {
+        let x = Input::<i64>::new("x");
+        let graph = x
+            .sequence()
+            .enumerate()
+            .filter(|(i, v)| v.gt_scalar(15))
+            .map(|(i, v)| v + i)
+            .collect();
+        let output: Tensor<i64> = run_graph(
+            &graph,
+            vec![(
+                "x",
+                Tensor::new(&[4])
+                    .with_values(&[10_i64, 20, 30, 40])
+                    .unwrap(),
+            )],
+        );
+        assert_eq!(output.to_vec(), vec![21, 32, 43]);
+    }
+    #[test]
+    fn zip_filter_then_map_is_composable() {
+        let x = Input::<i32>::new("x");
+        let y = Input::<i32>::new("y");
+        let graph = x
+            .sequence()
+            .zip(y.sequence())
+            .filter(|(a, b)| a.gt_scalar(1))
+            .map(|(a, b)| a + b)
+            .collect();
+        let output: Tensor<i32> = run_graph(
+            &graph,
+            vec![
+                ("x", Tensor::new(&[4]).with_values(&[1, 2, 3, 4]).unwrap()),
+                (
+                    "y",
+                    Tensor::new(&[4]).with_values(&[10, 20, 30, 40]).unwrap(),
+                ),
+            ],
+        );
+        assert_eq!(output.to_vec(), vec![22, 33, 44]);
+    }
+    #[test]
+    fn tuple_adapters_preserve_alignment_through_take_and_skip() {
+        let x = Input::<i32>::new("x");
+        let y = Input::<i32>::new("y");
+        let graph = x
+            .sequence()
+            .zip(y.sequence())
+            .skip(1)
+            .take(2)
+            .map(|(a, b)| a * 10 + b)
+            .collect();
+        let output: Tensor<i32> = run_graph(
+            &graph,
+            vec![
+                ("x", Tensor::new(&[4]).with_values(&[1, 2, 3, 4]).unwrap()),
+                (
+                    "y",
+                    Tensor::new(&[4]).with_values(&[10, 20, 30, 40]).unwrap(),
+                ),
+            ],
+        );
+        assert_eq!(output.to_vec(), vec![40, 60]);
+    }
+    #[test]
     fn enumerate_can_be_followed_by_regular_sequence_map() {
         let x = Input::<i64>::new("x");
         let graph = x
