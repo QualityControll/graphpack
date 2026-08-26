@@ -22,6 +22,22 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
                 set_constant(&mut desc, value)?;
                 desc.finish().map_err(|e| e.to_string())?
             }
+            OpKind::Filter => {
+                // Filter is lowered as a TensorFlow SelectV2.  This keeps the
+                // result tensor shape stable while making the predicate part
+                // of the executable graph. Dynamic-length collection semantics
+                // will be added when Input is generalized to vector inputs.
+                let mut desc = tensorflow_graph.new_operation("SelectV2", &node_name(op_ptr, output_ptr)).map_err(|e| e.to_string())?;
+                let value = lowered.get(&Rc::as_ptr(&op.inputs()[0])).ok_or_else(|| "filter value was not lowered".to_string())?;
+                let predicate = lowered.get(&Rc::as_ptr(&op.inputs()[1])).ok_or_else(|| "filter predicate was not lowered".to_string())?;
+                let mut false_value = tensorflow_graph.new_operation("ZerosLike", &format!("{}_false", node_name(op_ptr, output_ptr))).map_err(|e| e.to_string())?;
+                false_value.add_input(value.clone());
+                let false_value = false_value.finish().map_err(|e| e.to_string())?;
+                desc.add_input(predicate.clone());
+                desc.add_input(value.clone());
+                desc.add_input(false_value);
+                desc.finish().map_err(|e| e.to_string())?
+            }
             _ => {
                 let op_type = match op.kind() {
                     OpKind::Add => "Add", OpKind::Sub => "Sub", OpKind::Mul => "Mul", OpKind::Div => "Div", OpKind::Neg => "Neg",
@@ -29,7 +45,7 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
                     OpKind::Shl => "LeftShift", OpKind::Shr => "RightShift",
                     OpKind::Equal => "Equal", OpKind::NotEqual => "NotEqual", OpKind::Less => "Less", OpKind::LessEqual => "LessEqual", OpKind::Greater => "Greater", OpKind::GreaterEqual => "GreaterEqual",
                     OpKind::Map => return Err("Map nodes should be eliminated before TensorFlow lowering".into()),
-                    OpKind::Input { .. } | OpKind::Constant { .. } => unreachable!(),
+                    OpKind::Input { .. } | OpKind::Constant { .. } | OpKind::Filter => unreachable!(),
                 };
                 let mut desc = tensorflow_graph.new_operation(op_type, &node_name(op_ptr, output_ptr)).map_err(|e| e.to_string())?;
                 for input in op.inputs() {
