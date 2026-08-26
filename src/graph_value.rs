@@ -10,17 +10,17 @@ impl<T> GraphValue<T> {
     pub(crate) fn op(&self) -> &Rc<Op> { &self.op }
     pub fn map<U, F>(self, f: F) -> GraphValue<U> where F: FnOnce(GraphValue<T>) -> GraphValue<U> { f(self) }
     pub fn collect(&self) -> tensorflow::Graph { Graph::from_output(self.op.clone()).to_tensorflow().expect("failed to lower GraphPack graph to TensorFlow") }
-    pub fn eq(self, rhs: GraphValue<T>) -> GraphValue<bool> { comparison(self, rhs, OpKind::Equal) }
-    pub fn ne(self, rhs: GraphValue<T>) -> GraphValue<bool> { comparison(self, rhs, OpKind::NotEqual) }
-    pub fn lt(self, rhs: GraphValue<T>) -> GraphValue<bool> { comparison(self, rhs, OpKind::Less) }
-    pub fn le(self, rhs: GraphValue<T>) -> GraphValue<bool> { comparison(self, rhs, OpKind::LessEqual) }
-    pub fn gt(self, rhs: GraphValue<T>) -> GraphValue<bool> { comparison(self, rhs, OpKind::Greater) }
-    pub fn ge(self, rhs: GraphValue<T>) -> GraphValue<bool> { comparison(self, rhs, OpKind::GreaterEqual) }
+    pub fn eq(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::Equal) }
+    pub fn ne(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::NotEqual) }
+    pub fn lt(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::Less) }
+    pub fn le(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::LessEqual) }
+    pub fn gt(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::Greater) }
+    pub fn ge(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::GreaterEqual) }
 }
 impl GraphValue<bool> {
-    pub fn and(self, rhs: GraphValue<bool>) -> GraphValue<bool> { binary_op(self, rhs, OpKind::LogicalAnd) }
-    pub fn or(self, rhs: GraphValue<bool>) -> GraphValue<bool> { binary_op(self, rhs, OpKind::LogicalOr) }
-    pub fn not(self) -> GraphValue<bool> { unary_op(self, OpKind::LogicalNot) }
+    pub fn and(&self, rhs: &GraphValue<bool>) -> GraphValue<bool> { binary_op(self.clone(), rhs.clone(), OpKind::LogicalAnd) }
+    pub fn or(&self, rhs: &GraphValue<bool>) -> GraphValue<bool> { binary_op(self.clone(), rhs.clone(), OpKind::LogicalOr) }
+    pub fn not(&self) -> GraphValue<bool> { unary_op(self.clone(), OpKind::LogicalNot) }
 }
 fn constant<T: IntoConstant>(value: T) -> GraphValue<T> { GraphValue::from_op(Rc::new(Op::new(OpKind::Constant { value: value.into_constant() }, vec![]))) }
 trait IntoConstant: Sized { fn into_constant(self) -> ConstantValue; }
@@ -28,7 +28,7 @@ impl IntoConstant for f32 { fn into_constant(self)->ConstantValue{ConstantValue:
 fn binary_op<T>(lhs:GraphValue<T>,rhs:GraphValue<T>,kind:OpKind)->GraphValue<T>{GraphValue::from_op(Rc::new(Op::new(kind,vec![lhs.op.clone(),rhs.op.clone()]))) }
 fn unary_op<T>(value:GraphValue<T>,kind:OpKind)->GraphValue<T>{GraphValue::from_op(Rc::new(Op::new(kind,vec![value.op.clone()]))) }
 fn comparison<T>(lhs:GraphValue<T>,rhs:GraphValue<T>,kind:OpKind)->GraphValue<bool>{GraphValue::from_op(Rc::new(Op::new(kind,vec![lhs.op.clone(),rhs.op.clone()]))) }
-macro_rules! impl_comparison_ops { ($($t:ty),+) => { $( impl GraphValue<$t>{ pub fn eq_scalar(self,rhs:$t)->GraphValue<bool>{comparison(self,constant(rhs),OpKind::Equal)} pub fn ne_scalar(self,rhs:$t)->GraphValue<bool>{comparison(self,constant(rhs),OpKind::NotEqual)} pub fn lt_scalar(self,rhs:$t)->GraphValue<bool>{comparison(self,constant(rhs),OpKind::Less)} pub fn le_scalar(self,rhs:$t)->GraphValue<bool>{comparison(self,constant(rhs),OpKind::LessEqual)} pub fn gt_scalar(self,rhs:$t)->GraphValue<bool>{comparison(self,constant(rhs),OpKind::Greater)} pub fn ge_scalar(self,rhs:$t)->GraphValue<bool>{comparison(self,constant(rhs),OpKind::GreaterEqual)} } )+ }; }
+macro_rules! impl_comparison_ops { ($($t:ty),+) => { $( impl GraphValue<$t>{ pub fn eq_scalar(&self,rhs:$t)->GraphValue<bool>{comparison(self.clone(),constant(rhs),OpKind::Equal)} pub fn ne_scalar(&self,rhs:$t)->GraphValue<bool>{comparison(self.clone(),constant(rhs),OpKind::NotEqual)} pub fn lt_scalar(&self,rhs:$t)->GraphValue<bool>{comparison(self.clone(),constant(rhs),OpKind::Less)} pub fn le_scalar(&self,rhs:$t)->GraphValue<bool>{comparison(self.clone(),constant(rhs),OpKind::LessEqual)} pub fn gt_scalar(&self,rhs:$t)->GraphValue<bool>{comparison(self.clone(),constant(rhs),OpKind::Greater)} pub fn ge_scalar(&self,rhs:$t)->GraphValue<bool>{comparison(self.clone(),constant(rhs),OpKind::GreaterEqual)} } )+ }; }
 impl_comparison_ops!(f32,f64,i32,i64,usize);
 impl<T>Add for GraphValue<T>{type Output=GraphValue<T>;fn add(self,rhs:Self)->Self::Output{binary_op(self,rhs,OpKind::Add)}} impl<T>Sub for GraphValue<T>{type Output=GraphValue<T>;fn sub(self,rhs:Self)->Self::Output{binary_op(self,rhs,OpKind::Sub)}} impl<T>Mul for GraphValue<T>{type Output=GraphValue<T>;fn mul(self,rhs:Self)->Self::Output{binary_op(self,rhs,OpKind::Mul)}} impl<T>Div for GraphValue<T>{type Output=GraphValue<T>;fn div(self,rhs:Self)->Self::Output{binary_op(self,rhs,OpKind::Div)}} impl<T>Neg for GraphValue<T>{type Output=GraphValue<T>;fn neg(self)->Self::Output{unary_op(self,OpKind::Neg)}}
 macro_rules! impl_scalar_ops { ($($t:ty),+) => { $( impl Add<$t> for GraphValue<$t>{type Output=GraphValue<$t>;fn add(self,rhs:$t)->Self::Output{binary_op(self,constant(rhs),OpKind::Add)}} impl Sub<$t> for GraphValue<$t>{type Output=GraphValue<$t>;fn sub(self,rhs:$t)->Self::Output{binary_op(self,constant(rhs),OpKind::Sub)}} impl Mul<$t> for GraphValue<$t>{type Output=GraphValue<$t>;fn mul(self,rhs:$t)->Self::Output{binary_op(self,constant(rhs),OpKind::Mul)}} impl Div<$t> for GraphValue<$t>{type Output=GraphValue<$t>;fn div(self,rhs:$t)->Self::Output{binary_op(self,constant(rhs),OpKind::Div)}} )+ }; }
