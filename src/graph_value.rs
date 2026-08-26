@@ -13,18 +13,38 @@ pub struct GraphValue<T> {
 }
 
 impl<T> GraphValue<T> {
-    pub(crate) fn from_op(op: Rc<Op>) -> Self { Self { op, _marker: PhantomData } }
-    pub(crate) fn op(&self) -> &Rc<Op> { &self.op }
+    pub(crate) fn from_op(op: Rc<Op>) -> Self {
+        Self { op, _marker: PhantomData }
+    }
 
-    /// Completes graph construction and returns the concrete graph.
-    pub fn collect(&self) -> Graph { Graph::from_output(self.op.clone()) }
+    pub(crate) fn op(&self) -> &Rc<Op> {
+        &self.op
+    }
+
+    /// Applies a graph-building function to this value.
+    pub fn map<U, F>(self, f: F) -> GraphValue<U>
+    where
+        F: FnOnce(GraphValue<T>) -> GraphValue<U>,
+    {
+        f(self)
+    }
+
+    /// Completes the lazy pipeline and returns the concrete graph.
+    pub fn collect(&self) -> Graph {
+        Graph::from_output(self.op.clone())
+    }
 }
 
 fn constant<T: IntoConstant>(value: T) -> GraphValue<T> {
-    GraphValue::from_op(Rc::new(Op::new(OpKind::Constant { value: value.into_constant() }, vec![])))
+    GraphValue::from_op(Rc::new(Op::new(
+        OpKind::Constant { value: value.into_constant() },
+        vec![],
+    )))
 }
 
-trait IntoConstant: Sized { fn into_constant(self) -> ConstantValue; }
+trait IntoConstant: Sized {
+    fn into_constant(self) -> ConstantValue;
+}
 impl IntoConstant for f32 { fn into_constant(self) -> ConstantValue { ConstantValue::F32(self) } }
 impl IntoConstant for f64 { fn into_constant(self) -> ConstantValue { ConstantValue::F64(self) } }
 impl IntoConstant for i32 { fn into_constant(self) -> ConstantValue { ConstantValue::I32(self) } }
