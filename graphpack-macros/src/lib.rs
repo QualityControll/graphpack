@@ -46,9 +46,7 @@ impl Lowerer {
                 Ok(quote!(#ident.clone()))
             }
             Expr::Lit(ExprLit { lit, .. }) => self.lower_literal(lit),
-            Expr::Binary(ExprBinary { left, op, right, .. }) => {
-                self.lower_binary(left, op, right)
-            }
+            Expr::Binary(ExprBinary { left, op, right, .. }) => self.lower_binary(left, op, right),
             Expr::Unary(expr) => self.lower_unary(&expr.op, &expr.expr),
             Expr::Block(ExprBlock { block, .. }) => self.lower_block(block),
             _ => Err(syn::Error::new_spanned(
@@ -60,6 +58,7 @@ impl Lowerer {
 
     fn lower_literal(&mut self, lit: &syn::Lit) -> syn::Result<proc_macro2::TokenStream> {
         let tensor_type = self.scalar_type.tensor_type();
+        let data_type = self.scalar_type.data_type();
         let name = self.next_name("const");
         let value = match (self.scalar_type, lit) {
             (ScalarType::F32, syn::Lit::Float(value)) => value.to_token_stream(),
@@ -79,7 +78,7 @@ impl Lowerer {
                     .new_operation("Const", stringify!(#name))
                     .expect("failed to create Const operation");
                 __op
-                    .set_attr_type("dtype", #self_scalar_data_type)
+                    .set_attr_type("dtype", #data_type)
                     .expect("failed to set Const dtype");
                 let __value = ::tensorflow::Tensor::<#tensor_type>::from(#value);
                 __op
@@ -90,12 +89,7 @@ impl Lowerer {
         })
     }
 
-    fn lower_binary(
-        &mut self,
-        left: &Expr,
-        op: &BinOp,
-        right: &Expr,
-    ) -> syn::Result<proc_macro2::TokenStream> {
+    fn lower_binary(&mut self, left: &Expr, op: &BinOp, right: &Expr) -> syn::Result<proc_macro2::TokenStream> {
         let op_name = match op {
             BinOp::Add(_) => "Add",
             BinOp::Sub(_) => "Sub",
@@ -107,12 +101,7 @@ impl Lowerer {
             BinOp::BitXor(_) => "BitwiseXor",
             BinOp::Shl(_) => "LeftShift",
             BinOp::Shr(_) => "RightShift",
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    op,
-                    "unsupported binary operator in graphpack!",
-                ))
-            }
+            _ => return Err(syn::Error::new_spanned(op, "unsupported binary operator in graphpack!")),
         };
 
         let left = self.lower_expr(left)?;
@@ -131,11 +120,7 @@ impl Lowerer {
         })
     }
 
-    fn lower_unary(
-        &mut self,
-        op: &UnOp,
-        expr: &Expr,
-    ) -> syn::Result<proc_macro2::TokenStream> {
+    fn lower_unary(&mut self, op: &UnOp, expr: &Expr) -> syn::Result<proc_macro2::TokenStream> {
         let op_name = match op {
             UnOp::Neg(_) => "Neg",
             UnOp::Not(_) => "Invert",
@@ -172,16 +157,10 @@ impl Lowerer {
                     }
                 }
                 Stmt::Item(item) => {
-                    return Err(syn::Error::new_spanned(
-                        item,
-                        "items are not supported inside graphpack! closures",
-                    ))
+                    return Err(syn::Error::new_spanned(item, "items are not supported inside graphpack! closures"))
                 }
                 Stmt::Macro(mac) => {
-                    return Err(syn::Error::new_spanned(
-                        mac,
-                        "macros are not supported inside graphpack! closures",
-                    ))
+                    return Err(syn::Error::new_spanned(mac, "macros are not supported inside graphpack! closures"))
                 }
             }
         }
@@ -195,9 +174,7 @@ impl Lowerer {
             Pat::Ident(pat_ident) => &pat_ident.ident,
             _ => return Err(syn::Error::new_spanned(&local.pat, "graphpack! let bindings must use identifiers")),
         };
-        let init = local.init.as_ref().ok_or_else(|| {
-            syn::Error::new_spanned(local, "graphpack! let bindings require an initializer")
-        })?;
+        let init = local.init.as_ref().ok_or_else(|| syn::Error::new_spanned(local, "graphpack! let bindings require an initializer"))?;
         let expr = self.lower_expr(&init.expr)?;
         Ok(quote! { let #ident = #expr; })
     }
@@ -206,11 +183,8 @@ impl Lowerer {
 #[proc_macro]
 pub fn graphpack(input: TokenStream) -> TokenStream {
     let closure = parse_macro_input!(input as ExprClosure);
-
     if closure.inputs.len() != 1 {
-        return syn::Error::new_spanned(closure, "graphpack! currently supports exactly one input")
-            .to_compile_error()
-            .into();
+        return syn::Error::new_spanned(closure, "graphpack! currently supports exactly one input").to_compile_error().into();
     }
 
     let input = closure.inputs.first().unwrap();
@@ -266,9 +240,7 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
                 .new_operation("Identity", "output")
                 .expect("failed to create output operation");
             __graphpack_output.add_input(__graphpack_result);
-            __graphpack_output
-                .finish()
-                .expect("failed to finish output operation");
+            __graphpack_output.finish().expect("failed to finish output operation");
             graph.graph_def().expect("failed to serialize GraphDef")
         }
     })
