@@ -1,43 +1,49 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use crate::op::Op;
+use crate::op::{NodeId, Op};
+
+thread_local! {
+    static ARENA: RefCell<Vec<Rc<Op>>> = const { RefCell::new(Vec::new()) };
+}
+
+pub(crate) fn insert(op: Op) -> NodeId {
+    ARENA.with(|arena| {
+        let mut arena = arena.borrow_mut();
+        let id = NodeId(arena.len());
+        arena.push(Rc::new(op));
+        id
+    })
+}
+
+pub(crate) fn get(id: NodeId) -> Rc<Op> {
+    ARENA.with(|arena| arena.borrow()[id.0].clone())
+}
 
 /// A materialized computation graph.
 #[derive(Clone, Debug)]
 pub struct Graph {
     operations: Vec<Rc<Op>>,
-    output: Rc<Op>,
+    output: NodeId,
 }
 
 impl Graph {
-    pub(crate) fn from_output(output: Rc<Op>) -> Self {
+    pub(crate) fn from_output(output: NodeId) -> Self {
         let mut operations = Vec::new();
         let mut visited = HashSet::new();
-        collect(&output, &mut visited, &mut operations);
+        collect(output, &mut visited, &mut operations);
         Self { operations, output }
     }
 
-    pub fn operations(&self) -> &[Rc<Op>] {
-        &self.operations
-    }
-    pub fn output(&self) -> &Rc<Op> {
-        &self.output
-    }
-
-    /// Lowers this GraphPack graph into an executable TensorFlow graph.
-    pub fn to_tensorflow(&self) -> Result<tensorflow::Graph, String> {
-        crate::tensorflow::lower(self)
-    }
+    pub fn operations(&self) -> &[Rc<Op>] { &self.operations }
+    pub fn output(&self) -> &Rc<Op> { &self.operations.iter().find(|op| std::ptr::eq(Rc::as_ptr(op), Rc::as_ptr(&get(self.output)))).unwrap() }
+    pub fn to_tensorflow(&self) -> Result<tensorflow::Graph, String> { crate::tensorflow::lower(self) }
 }
 
-fn collect(op: &Rc<Op>, visited: &mut HashSet<*const Op>, operations: &mut Vec<Rc<Op>>) {
-    let ptr = Rc::as_ptr(op);
-    if !visited.insert(ptr) {
-        return;
-    }
-    for input in op.inputs() {
-        collect(input, visited, operations);
-    }
-    operations.push(op.clone());
+fn collect(id: NodeId, visited: &mut HashSet<NodeId>, operations: &mut Vec<Rc<Op>>) {
+    if !visited.insert(id) { return; }
+    let op = get(id);
+    for &input in op.inputs() { collect(input, visited, operations); }
+    operations.push(op);
 }
