@@ -16,8 +16,12 @@ impl<T: GraphType> Input<T> {
     pub fn map<U, F>(self, f: F) -> GraphValue<U>
     where F: FnOnce(GraphValue<T>) -> GraphValue<U> { f(GraphValue::from_op(self.op)) }
 
-    pub fn filter<F>(self, _predicate: F) -> Input<T>
-    where F: FnOnce(&GraphValue<T>) -> GraphValue<bool> { todo!("filter graph construction is not implemented yet") }
+    pub fn filter<F>(self, predicate: F) -> GraphValue<T>
+    where F: FnOnce(GraphValue<T>) -> GraphValue<bool> {
+        let value = GraphValue::from_op(self.op);
+        let predicate = predicate(value.clone());
+        GraphValue::from_op(Rc::new(Op::new(OpKind::Filter, vec![value.op().clone(), predicate.op().clone()])))
+    }
 
     pub fn fold<U, F>(self, _init: U, _f: F) -> U
     where F: FnOnce(U, GraphValue<T>) -> U { todo!("fold graph construction is not implemented yet") }
