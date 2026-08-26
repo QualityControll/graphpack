@@ -117,6 +117,78 @@ mod tests {
     }
 
     #[test]
+    fn single_element_tuple_can_be_destructured() {
+        let x = Input::<i32>::new("x");
+        let graph = (x,).map(|(x,)| x * 4).collect();
+        let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(5_i32))]);
+        assert_eq!(output[0], 20);
+    }
+
+    #[test]
+    fn nested_tuples_can_be_destructured() {
+        let a = Input::<i32>::new("a");
+        let b = Input::<i32>::new("b");
+        let c = Input::<i32>::new("c");
+        let d = Input::<i32>::new("d");
+        let graph = ((a, b), (c, d))
+            .map(|((a, b), (c, d))| a * b + c * d)
+            .collect();
+        let output: Tensor<i32> = run_graph(
+            &graph,
+            vec![
+                ("a", Tensor::from(2_i32)),
+                ("b", Tensor::from(3_i32)),
+                ("c", Tensor::from(4_i32)),
+                ("d", Tensor::from(5_i32)),
+            ],
+        );
+        assert_eq!(output[0], 26);
+    }
+
+    #[test]
+    fn nested_four_input_tuples_can_be_destructured() {
+        let a = Input::<i32>::new("a");
+        let b = Input::<i32>::new("b");
+        let c = Input::<i32>::new("c");
+        let d = Input::<i32>::new("d");
+        let e = Input::<i32>::new("e");
+        let f = Input::<i32>::new("f");
+        let g = Input::<i32>::new("g");
+        let h = Input::<i32>::new("h");
+        let graph = ((a, b, c, d), (e, f, g, h))
+            .map(|((a, b, c, d), (e, f, g, h))| a + b * c + d + e + f * g + h)
+            .collect();
+        let output: Tensor<i32> = run_graph(
+            &graph,
+            vec![
+                ("a", Tensor::from(1_i32)),
+                ("b", Tensor::from(2_i32)),
+                ("c", Tensor::from(3_i32)),
+                ("d", Tensor::from(4_i32)),
+                ("e", Tensor::from(5_i32)),
+                ("f", Tensor::from(6_i32)),
+                ("g", Tensor::from(7_i32)),
+                ("h", Tensor::from(8_i32)),
+            ],
+        );
+        assert_eq!(output[0], 63);
+    }
+
+    #[test]
+    fn tuple_inputs_can_be_reused_in_richer_expressions() {
+        let x = Input::<i32>::new("x");
+        let y = Input::<i32>::new("y");
+        let graph = (x, y)
+            .map(|(x, y)| (x * x) + (y * y) + (x * y))
+            .collect();
+        let output: Tensor<i32> = run_graph(
+            &graph,
+            vec![("x", Tensor::from(2_i32)), ("y", Tensor::from(3_i32))],
+        );
+        assert_eq!(output[0], 19);
+    }
+
+    #[test]
     fn complex_scalar_types_work() {
         let x = Input::<Complex<f32>>::new("x");
         let graph = x.map(|v| v + Complex::new(1.0, 2.0)).collect();
