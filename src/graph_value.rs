@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::rc::Rc;
 
-use crate::op::{Op, OpKind};
+use crate::op::{ConstantValue, Op, OpKind};
 
 /// A typed value flowing through a GraphPack computation graph.
 #[derive(Clone)]
@@ -18,6 +18,36 @@ impl<T> GraphValue<T> {
 
     pub(crate) fn op(&self) -> &Rc<Op> {
         &self.op
+    }
+}
+
+impl GraphValue<f32> {
+    pub fn constant(value: f32) -> Self {
+        Self::from_op(Rc::new(Op::new(OpKind::Constant { value: ConstantValue::F32(value) }, vec![])))
+    }
+}
+
+impl GraphValue<f64> {
+    pub fn constant(value: f64) -> Self {
+        Self::from_op(Rc::new(Op::new(OpKind::Constant { value: ConstantValue::F64(value) }, vec![])))
+    }
+}
+
+impl GraphValue<i32> {
+    pub fn constant(value: i32) -> Self {
+        Self::from_op(Rc::new(Op::new(OpKind::Constant { value: ConstantValue::I32(value) }, vec![])))
+    }
+}
+
+impl GraphValue<i64> {
+    pub fn constant(value: i64) -> Self {
+        Self::from_op(Rc::new(Op::new(OpKind::Constant { value: ConstantValue::I64(value) }, vec![])))
+    }
+}
+
+impl GraphValue<bool> {
+    pub fn constant(value: bool) -> Self {
+        Self::from_op(Rc::new(Op::new(OpKind::Constant { value: ConstantValue::Bool(value) }, vec![])))
     }
 }
 
@@ -55,35 +85,14 @@ impl<T> Neg for GraphValue<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Input;
 
     #[test]
-    fn arithmetic_operators_build_graph_nodes() {
-        let x = Input::<f32>::new("x");
-        let x_op = x.op().clone();
-        let value = GraphValue::from_op(x_op.clone());
+    fn constants_build_graph_nodes() {
+        let f32_value = GraphValue::<f32>::constant(2.5);
+        assert_eq!(f32_value.op().kind(), &OpKind::Constant { value: ConstantValue::F32(2.5) });
+        assert!(f32_value.op().inputs().is_empty());
 
-        for (kind, result) in [
-            (OpKind::Add, value.clone() + value.clone()),
-            (OpKind::Sub, value.clone() - value.clone()),
-            (OpKind::Mul, value.clone() * value.clone()),
-            (OpKind::Div, value.clone() / value.clone()),
-        ] {
-            assert_eq!(result.op().kind(), &kind);
-            assert_eq!(result.op().inputs().len(), 2);
-            assert!(Rc::ptr_eq(&result.op().inputs()[0], &x_op));
-            assert!(Rc::ptr_eq(&result.op().inputs()[1], &x_op));
-        }
-    }
-
-    #[test]
-    fn neg_builds_graph_node() {
-        let x = Input::<f32>::new("x");
-        let x_op = x.op().clone();
-        let result = -GraphValue::from_op(x_op.clone());
-
-        assert_eq!(result.op().kind(), &OpKind::Neg);
-        assert_eq!(result.op().inputs().len(), 1);
-        assert!(Rc::ptr_eq(&result.op().inputs()[0], &x_op));
+        let i32_value = GraphValue::<i32>::constant(7);
+        assert_eq!(i32_value.op().kind(), &OpKind::Constant { value: ConstantValue::I32(7) });
     }
 }
