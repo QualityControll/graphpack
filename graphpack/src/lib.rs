@@ -2,9 +2,6 @@ use std::marker::PhantomData;
 
 pub use graphpack_macros::graphpack;
 
-tensorflow::lazy_static! {
-}
-
 pub struct Input<T> {
     _marker: PhantomData<T>,
 }
