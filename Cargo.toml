@@ -4,9 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tensorflow-proto = "0.3.0"
+tensorflow = "0.21.0"
 
 [build-dependencies]
-protobuf = "3"
-tensorflow-proto = "0.3.0"
-tensorflow-sys = "0.24"
+tensorflow = "0.21"
