@@ -33,35 +33,24 @@ mod tests {
         args.fetch(token).unwrap()
     }
 
-    fn run_graph_with_two_inputs<T: TensorType, U: TensorType>(
-        graph: &TensorFlowGraph,
-        first_name: &str,
-        first: Tensor<T>,
-        second_name: &str,
-        second: Tensor<T>,
-    ) -> Tensor<U> {
-        let first_op: Operation = graph.operation_by_name(first_name).unwrap().unwrap();
-        let second_op: Operation = graph.operation_by_name(second_name).unwrap().unwrap();
-        let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
-        let mut args = SessionRunArgs::new();
-        args.add_feed(&first_op, 0, &first);
-        args.add_feed(&second_op, 0, &second);
-        let token = args.request_fetch(&output_op, 0);
-        let session = Session::new(&SessionOptions::new(), graph).unwrap();
-        session.run(&mut args).unwrap();
-        args.fetch(token).unwrap()
-    }
-
-    fn run_graph_with_integer_inputs(
+    fn run_graph_with_inputs(
         graph: &TensorFlowGraph,
         inputs: Vec<(&str, Tensor<i32>)>,
     ) -> Tensor<i32> {
         let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
         let mut args = SessionRunArgs::new();
+        let inputs: Vec<(Operation, Tensor<i32>)> = inputs
+            .into_iter()
+            .map(|(name, input)| {
+                (
+                    graph.operation_by_name(name).unwrap().unwrap(),
+                    input,
+                )
+            })
+            .collect();
 
-        for (name, input) in inputs {
-            let input_op: Operation = graph.operation_by_name(name).unwrap().unwrap();
-            args.add_feed(&input_op, 0, &input);
+        for (input_op, input) in &inputs {
+            args.add_feed(input_op, 0, input);
         }
 
         let token = args.request_fetch(&output_op, 0);
@@ -95,12 +84,9 @@ mod tests {
         let x = Input::<i32>::new("x");
         let y = Input::<i32>::new("y");
         let graph = (x, y).map(|(x, y)| x + y).collect();
-        let output: Tensor<i32> = run_graph_with_two_inputs(
+        let output = run_graph_with_inputs(
             &graph,
-            "x",
-            Tensor::from(3_i32),
-            "y",
-            Tensor::from(4_i32),
+            vec![("x", Tensor::from(3_i32)), ("y", Tensor::from(4_i32))],
         );
         assert_eq!(output[0], 7);
     }
@@ -110,12 +96,9 @@ mod tests {
         let x = Input::<i32>::new("x");
         let y = Input::<i32>::new("y");
         let graph = (x, y).map(|(x, y)| x * 2 + y * 3).collect();
-        let output: Tensor<i32> = run_graph_with_two_inputs(
+        let output = run_graph_with_inputs(
             &graph,
-            "x",
-            Tensor::from(2_i32),
-            "y",
-            Tensor::from(5_i32),
+            vec![("x", Tensor::from(2_i32)), ("y", Tensor::from(5_i32))],
         );
         assert_eq!(output[0], 19);
     }
@@ -126,7 +109,7 @@ mod tests {
         let y = Input::<i32>::new("y");
         let z = Input::<i32>::new("z");
         let graph = (x, y, z).map(|(x, y, z)| x + y * z).collect();
-        let output = run_graph_with_integer_inputs(
+        let output = run_graph_with_inputs(
             &graph,
             vec![
                 ("x", Tensor::from(2_i32)),
@@ -150,7 +133,7 @@ mod tests {
         let graph = (a, b, c, d, e, f, g, h)
             .map(|(a, b, c, d, e, f, g, h)| a + b + c + d + e + f + g + h)
             .collect();
-        let output = run_graph_with_integer_inputs(
+        let output = run_graph_with_inputs(
             &graph,
             vec![
                 ("a", Tensor::from(1_i32)),
