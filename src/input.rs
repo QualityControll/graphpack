@@ -90,112 +90,57 @@ macro_rules! impl_input_tuple_map {
     ($(($($input:ident, $value:ident),+)),+ $(,)?) => {
         $(
             impl<$($input: GraphType),+> InputTupleMap for ($(Input<$input>,)+) {
-                type GraphValues<'a> = ($( &'a GraphValue<$input>, )+);
+                type GraphValues<'a> = ($( &'a GraphValue<$input>, )+)
+                where
+                    Self: 'a;
 
                 fn map<U, Func>(self, f: Func) -> U
                 where
                     Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U,
                 {
                     let ($( $value, )+) = self;
-                    f(($( &GraphValue::from_op($value.op), )+))
+                    let values = ($( GraphValue::from_op($value.op), )+);
+                    f(($( &values.$value, )+))
                 }
             }
         )+
     };
 }
 
-impl_input_tuple_map!(
-    (A, a, B, b),
-    (A, a, B, b, C, c),
-    (A, a, B, b, C, c, D, d),
-    (A, a, B, b, C, c, D, d, E, e),
-    (A, a, B, b, C, c, D, d, E, e, F, f),
-    (A, a, B, b, C, c, D, d, E, e, F, f, G, g),
-    (A, a, B, b, C, c, D, d, E, e, F, f, G, g, H, h),
-);
+impl_input_tuple_map!((A, a, B, b), (A, a, B, b, C, c), (A, a, B, b, C, c, D, d), (A, a, B, b, C, c, D, d, E, e), (A, a, B, b, C, c, D, d, E, e, F, f), (A, a, B, b, C, c, D, d, E, e, F, f, G, g), (A, a, B, b, C, c, D, d, E, e, F, f, G, g, H, h));
 
 impl<A: GraphType, B: GraphType> InputTupleMap for ((Input<A>, Input<B>),) {
     type GraphValues<'a> = ((&'a GraphValue<A>, &'a GraphValue<B>),)
-    where
-        Self: 'a;
+    where Self: 'a;
 
     fn map<U, Func>(self, f: Func) -> U
-    where
-        Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U,
-    {
+    where Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U {
         let ((a, b),) = self;
         let values = ((GraphValue::from_op(a.op), GraphValue::from_op(b.op)),);
-        f((&values.0 .0, &values.0 .1))
+        f(((&values.0.0, &values.0.1),))
     }
 }
 
-impl<A: GraphType, B: GraphType, C: GraphType, D: GraphType>
-    InputTupleMap for ((Input<A>, Input<B>), (Input<C>, Input<D>))
-{
-    type GraphValues<'a> = (
-        (&'a GraphValue<A>, &'a GraphValue<B>),
-        (&'a GraphValue<C>, &'a GraphValue<D>),
-    )
-    where
-        Self: 'a;
+impl<A: GraphType, B: GraphType, C: GraphType, D: GraphType> InputTupleMap for ((Input<A>, Input<B>), (Input<C>, Input<D>)) {
+    type GraphValues<'a> = ((&'a GraphValue<A>, &'a GraphValue<B>), (&'a GraphValue<C>, &'a GraphValue<D>))
+    where Self: 'a;
 
     fn map<U, Func>(self, f: Func) -> U
-    where
-        Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U,
-    {
+    where Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U {
         let ((a, b), (c, d)) = self;
-        let values = (
-            (GraphValue::from_op(a.op), GraphValue::from_op(b.op)),
-            (GraphValue::from_op(c.op), GraphValue::from_op(d.op)),
-        );
-        f((&values.0 .0, &values.0 .1,))
+        let values = ((GraphValue::from_op(a.op), GraphValue::from_op(b.op)), (GraphValue::from_op(c.op), GraphValue::from_op(d.op)));
+        f(((&values.0.0, &values.0.1), (&values.1.0, &values.1.1)))
     }
 }
 
-impl<
-    A: GraphType,
-    B: GraphType,
-    C: GraphType,
-    D: GraphType,
-    E: GraphType,
-    F: GraphType,
-    G: GraphType,
-    H: GraphType,
-> InputTupleMap
-    for (
-        (Input<A>, Input<B>, Input<C>, Input<D>),
-        (Input<E>, Input<F>, Input<G>, Input<H>),
-    )
-{
-    type GraphValues<'a> = (
-        (&'a GraphValue<A>, &'a GraphValue<B>, &'a GraphValue<C>, &'a GraphValue<D>),
-        (&'a GraphValue<E>, &'a GraphValue<F>, &'a GraphValue<G>, &'a GraphValue<H>),
-    )
-    where
-        Self: 'a;
+impl<A: GraphType, B: GraphType, C: GraphType, D: GraphType, E: GraphType, F: GraphType, G: GraphType, H: GraphType> InputTupleMap for ((Input<A>, Input<B>, Input<C>, Input<D>), (Input<E>, Input<F>, Input<G>, Input<H>)) {
+    type GraphValues<'a> = ((&'a GraphValue<A>, &'a GraphValue<B>, &'a GraphValue<C>, &'a GraphValue<D>), (&'a GraphValue<E>, &'a GraphValue<F>, &'a GraphValue<G>, &'a GraphValue<H>))
+    where Self: 'a;
 
     fn map<U, Func>(self, func: Func) -> U
-    where
-        Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U,
-    {
+    where Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U {
         let ((a, b, c, d), (e, f, g, h)) = self;
-        let values = (
-            (
-                GraphValue::from_op(a.op),
-                GraphValue::from_op(b.op),
-                GraphValue::from_op(c.op),
-                GraphValue::from_op(d.op),
-            ),
-            (
-                GraphValue::from_op(e.op),
-                GraphValue::from_op(f.op),
-                GraphValue::from_op(g.op),
-                GraphValue::from_op(h.op),
-            ),
-        );
-        func((
-            (&values.0 .0, &values.0 .1, &values.0 .2, &values.0 .3),
-            (&values.1 .0, &values.1 .1, &values.1 .2, &values.1 .3),
-        ))
+        let values = ((GraphValue::from_op(a.op), GraphValue::from_op(b.op), GraphValue::from_op(c.op), GraphValue::from_op(d.op)), (GraphValue::from_op(e.op), GraphValue::from_op(f.op), GraphValue::from_op(g.op), GraphValue::from_op(h.op)));
+        func(((&values.0.0, &values.0.1, &values.0.2, &values.0.3), (&values.1.0, &values.1.1, &values.1.2, &values.1.3)))
     }
 }
