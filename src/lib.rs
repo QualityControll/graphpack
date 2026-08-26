@@ -6,7 +6,7 @@ mod tensorflow;
 
 pub use graph::Graph;
 pub use graph_value::GraphValue;
-pub use input::Input;
+pub use input::{Input, InputTupleMap};
 pub use op::{ConstantValue, GraphType, Op, OpKind, ScalarType};
 
 #[cfg(test)]
@@ -33,6 +33,25 @@ mod tests {
         args.fetch(token).unwrap()
     }
 
+    fn run_graph_with_two_inputs<T: TensorType, U: TensorType>(
+        graph: &TensorFlowGraph,
+        first_name: &str,
+        first: Tensor<T>,
+        second_name: &str,
+        second: Tensor<T>,
+    ) -> Tensor<U> {
+        let first_op: Operation = graph.operation_by_name(first_name).unwrap().unwrap();
+        let second_op: Operation = graph.operation_by_name(second_name).unwrap().unwrap();
+        let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
+        let mut args = SessionRunArgs::new();
+        args.add_feed(&first_op, 0, &first);
+        args.add_feed(&second_op, 0, &second);
+        let token = args.request_fetch(&output_op, 0);
+        let session = Session::new(&SessionOptions::new(), graph).unwrap();
+        session.run(&mut args).unwrap();
+        args.fetch(token).unwrap()
+    }
+
     #[test]
     fn map_lowers_to_executable_tensorflow_graph() {
         let x = Input::<f32>::new("x");
@@ -51,6 +70,36 @@ mod tests {
             .collect();
         let output: Tensor<f32> = run_graph(&graph, "x", Tensor::from(3.0_f32));
         assert_eq!(output[0], 21.0);
+    }
+
+    #[test]
+    fn multiple_inputs_can_be_mapped_together() {
+        let x = Input::<i32>::new("x");
+        let y = Input::<i32>::new("y");
+        let graph = (x, y).map(|(x, y)| x + y).collect();
+        let output: Tensor<i32> = run_graph_with_two_inputs(
+            &graph,
+            "x",
+            Tensor::from(3_i32),
+            "y",
+            Tensor::from(4_i32),
+        );
+        assert_eq!(output[0], 7);
+    }
+
+    #[test]
+    fn multiple_inputs_can_be_used_in_a_complex_expression() {
+        let x = Input::<i32>::new("x");
+        let y = Input::<i32>::new("y");
+        let graph = (x, y).map(|(x, y)| x * 2 + y * 3).collect();
+        let output: Tensor<i32> = run_graph_with_two_inputs(
+            &graph,
+            "x",
+            Tensor::from(2_i32),
+            "y",
+            Tensor::from(5_i32),
+        );
+        assert_eq!(output[0], 19);
     }
 
     #[test]
