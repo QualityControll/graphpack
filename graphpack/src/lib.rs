@@ -7,24 +7,7 @@ pub struct Input<T> {
 }
 
 /// Runs a serialized GraphDef in a local TensorFlow session and fetches an f32 output.
-pub fn run_graph(
-    graph_def: &[u8],
-    inputs: &[(&str, &[f32])],
-    output: &str,
-) -> tensorflow::Result<tensorflow::Tensor<f32>> {
-    run_graph_typed(graph_def, inputs, output)
-}
-
-/// Runs a serialized GraphDef in a local TensorFlow session and fetches an i32 output.
-pub fn run_graph_i32(
-    graph_def: &[u8],
-    inputs: &[(&str, &[i32])],
-    output: &str,
-) -> tensorflow::Result<tensorflow::Tensor<i32>> {
-    run_graph_typed(graph_def, inputs, output)
-}
-
-fn run_graph_typed<T: tensorflow::TensorType>(
+fn run_graph<T: tensorflow::TensorType>(
     graph_def: &[u8],
     inputs: &[(&str, &[T])],
     output: &str,
@@ -59,7 +42,7 @@ fn run_graph_typed<T: tensorflow::TensorType>(
 
 #[cfg(test)]
 mod tests {
-    use super::{graphpack, run_graph, run_graph_i32, Input};
+    use super::{graphpack, run_graph,  Input};
 
     #[test]
     fn graphpack_multi_line_arithmetic_runs() {
@@ -69,8 +52,8 @@ mod tests {
             b - 3.0
         });
 
-        let output = run_graph(&graph_def, &[("x", &[1.0, 2.0, 3.0])], "output").unwrap();
-        assert_eq!(output.as_ref(), &[1.0, 3.0, 5.0]);
+        let output = run_graph(&graph_def, &[("x", &[1.0f32, 2.0, 3.0])], "output").unwrap();
+        assert_eq!(output.as_ref(), &[1.0f32, 3.0, 5.0]);
     }
 
     #[test]
@@ -82,11 +65,11 @@ mod tests {
 
         let output = run_graph(
             &graph_def,
-            &[("x", &[1.0, 2.0, 3.0]), ("y", &[4.0, 5.0, 6.0])],
+            &[("x", &[1.0f32, 2.0, 3.0]), ("y", &[4.0, 5.0, 6.0])],
             "output",
         )
         .unwrap();
-        assert_eq!(output.as_ref(), &[10.0, 14.0, 18.0]);
+        assert_eq!(output.as_ref(), &[10.0f32, 14.0, 18.0]);
     }
 
     #[test]
@@ -96,7 +79,7 @@ mod tests {
             difference * 2
         });
 
-        let output = run_graph_i32(
+        let output = run_graph(
             &graph_def,
             &[("x", &[10, 20, 30]), ("y", &[1, 2, 3])],
             "output",
@@ -113,7 +96,7 @@ mod tests {
             b | 1
         });
 
-        let output = run_graph_i32(&graph_def, &[("x", &[1, 2, 3])], "output").unwrap();
+        let output = run_graph(&graph_def, &[("x", &[1, 2, 3])], "output").unwrap();
         assert_eq!(output.as_ref(), &[3, 5, 7]);
     }
 
@@ -124,7 +107,7 @@ mod tests {
             y + 2.0
         });
 
-        let output = run_graph(&graph_def, &[("x", &[1.0, 2.0, 3.0])], "output").unwrap();
-        assert_eq!(output.as_ref(), &[1.0, 0.0, -1.0]);
+        let output = run_graph(&graph_def, &[("x", &[1.0f32, 2.0, 3.0])], "output").unwrap();
+        assert_eq!(output.as_ref(), &[1.0f32, 0.0, -1.0]);
     }
 }
