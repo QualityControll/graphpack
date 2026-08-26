@@ -18,8 +18,8 @@ impl<T> GraphValue<T> {
     pub fn ge(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::GreaterEqual) }
 }
 impl GraphValue<bool> {
-    pub fn and(&self, rhs: &GraphValue<bool>) -> GraphValue<bool> { binary_op(self.clone(), rhs.clone(), OpKind::LogicalAnd) }
-    pub fn or(&self, rhs: &GraphValue<bool>) -> GraphValue<bool> { binary_op(self.clone(), rhs.clone(), OpKind::LogicalOr) }
+    pub fn and(&self, rhs: GraphValue<bool>) -> GraphValue<bool> { binary_op(self.clone(), rhs, OpKind::LogicalAnd) }
+    pub fn or(&self, rhs: GraphValue<bool>) -> GraphValue<bool> { binary_op(self.clone(), rhs, OpKind::LogicalOr) }
     pub fn not(&self) -> GraphValue<bool> { unary_op(self.clone(), OpKind::LogicalNot) }
 }
 fn constant<T: IntoConstant>(value: T) -> GraphValue<T> { GraphValue::from_op(Rc::new(Op::new(OpKind::Constant { value: value.into_constant() }, vec![]))) }
