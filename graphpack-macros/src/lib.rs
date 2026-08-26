@@ -51,11 +51,11 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
                 let mut constant = graph.new_operation("Const", "constant").expect("failed to create constant operation");
                 constant.set_attr_type("dtype", ::tensorflow::DataType::Float).expect("failed to set constant data type");
                 let value = ::tensorflow::Tensor::<f32>::new(&[]).with_values(&[#value as f32]).expect("failed to create constant tensor");
-                constant.set_attr_tensor("value", &value).expect("failed to set constant value");
+                constant.set_attr_tensor("value", value).expect("failed to set constant value");
                 let constant = constant.finish().expect("failed to finish constant operation");
                 let mut add = graph.new_operation("Add", "output").expect("failed to create Add operation");
-                add.add_input(&input_operation);
-                add.add_input(&constant);
+                add.add_input(input_operation);
+                add.add_input(constant);
                 add.finish().expect("failed to finish Add operation");
             }
         }
