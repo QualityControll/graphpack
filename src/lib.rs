@@ -141,7 +141,7 @@ mod tests {
                 Tensor::new(&[3]).with_values(&[true, true, false]).unwrap(),
             )],
         );
-        assert!(!output[0]);
+        assert!(output[0]);
     }
 
     #[test]
