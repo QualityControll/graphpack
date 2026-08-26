@@ -15,7 +15,10 @@ fn if_statement_without_value_is_supported() {
     let mut graph = tensorflow::Graph::new();
     let options = tensorflow::ImportGraphDefOptions::new();
     graph.import_graph_def(&graph_def, &options).unwrap();
-    assert!(graph.operation_by_name("output").is_some());
+    assert!(graph
+        .operation_by_name("output")
+        .expect("failed to find output operation")
+        .is_some());
 }
 
 #[test]
@@ -32,5 +35,8 @@ fn if_statement_can_be_multiline() {
     let mut graph = tensorflow::Graph::new();
     let options = tensorflow::ImportGraphDefOptions::new();
     graph.import_graph_def(&graph_def, &options).unwrap();
-    assert!(graph.operation_by_name("output").is_some());
+    assert!(graph
+        .operation_by_name("output")
+        .expect("failed to find output operation")
+        .is_some());
 }
