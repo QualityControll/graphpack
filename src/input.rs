@@ -28,6 +28,11 @@ impl<T: GraphType> Input<T> {
     pub fn scan<U, F>(self, _init: U, _f: F) -> Input<U>
     where F: FnOnce(U, GraphValue<T>) -> U { todo!("scan graph construction is not implemented yet") }
 
-    pub fn collect(self) -> Graph { Graph::from_output(self.op) }
+    pub fn collect(self) -> tensorflow::Graph {
+        Graph::from_output(self.op)
+            .to_tensorflow()
+            .expect("failed to lower GraphPack graph to TensorFlow")
+    }
+
     pub(crate) fn op(&self) -> &Rc<Op> { &self.op }
 }
