@@ -18,10 +18,7 @@ impl LoweringContext {
 
     pub fn lower_expr(&mut self, expr: &Expr) -> syn::Result<TokenStream> {
         match expr {
-            Expr::Path(ExprPath { path, .. }) => {
-                let name = path.segments.last().unwrap().ident.to_string();
-                self.values.get(&name).cloned().ok_or_else(|| syn::Error::new_spanned(expr, "unknown graph value"))
-            }
+            Expr::Path(ExprPath { path, .. }) => { let name = path.segments.last().unwrap().ident.to_string(); self.values.get(&name).cloned().ok_or_else(|| syn::Error::new_spanned(expr, "unknown graph value")) }
             Expr::Lit(ExprLit { lit, .. }) => {
                 let (value, ty, data_type) = match lit {
                     Lit::Float(value) => { let ty = self.scalar_type.tensor_type(); let data_type = self.scalar_type.data_type(); (quote!(#value as #ty), ty, data_type) }
@@ -55,18 +52,19 @@ impl LoweringContext {
         }
     }
 
-    fn lower_if_statement(&mut self, expr: &syn::ExprIf) -> syn::Result<()> {
-        self.lower_expr(&expr.cond)?;
+    fn lower_if_statement(&mut self, expr: &syn::ExprIf) -> syn::Result<TokenStream> {
+        let condition = self.lower_expr(&expr.cond)?;
         let outer_values = self.values.clone();
-        self.lower_statements_discarding_value(&expr.then_branch.stmts)?;
+        let then_body = self.lower_statements_discarding_value(&expr.then_branch.stmts)?;
         self.values = outer_values.clone();
         let else_branch = expr.else_branch.as_ref().ok_or_else(|| syn::Error::new_spanned(expr, "graphpack! if statements require an else branch"))?;
-        match &*else_branch.1 { Expr::Block(block) => self.lower_statements_discarding_value(&block.block.stmts)?, other => { self.lower_expr(other)?; } }
+        let else_body = match &*else_branch.1 { Expr::Block(block) => self.lower_statements_discarding_value(&block.block.stmts)?, other => self.lower_expr(other)? };
         self.values = outer_values;
-        Ok(())
+        Ok(quote!({ let _condition: ::tensorflow::Output = #condition; #then_body #else_body }))
     }
 
-    fn lower_statements_discarding_value(&mut self, statements: &[Stmt]) -> syn::Result<()> {
+    fn lower_statements_discarding_value(&mut self, statements: &[Stmt]) -> syn::Result<TokenStream> {
+        let mut generated = TokenStream::new();
         for statement in statements {
             match statement {
                 Stmt::Local(local) => {
@@ -74,14 +72,14 @@ impl LoweringContext {
                     let init = local.init.as_ref().ok_or_else(|| syn::Error::new_spanned(local, "graphpack! let bindings require an initializer"))?;
                     let value = self.lower_expr(&init.expr)?;
                     self.values.insert(ident.to_string(), quote!(#ident.clone()));
-                    let _ = value;
+                    generated.extend(quote! { let #ident: ::tensorflow::Output = #value; });
                 }
-                Stmt::Expr(expr, _) => { if let Expr::If(if_expr) = expr { self.lower_if_statement(if_expr)?; } else { self.lower_expr(expr)?; } }
+                Stmt::Expr(expr, _) => { if let Expr::If(if_expr) = expr { generated.extend(self.lower_if_statement(if_expr)?); } else { let value = self.lower_expr(expr)?; generated.extend(quote! { let _ = #value; }); } }
                 Stmt::Item(item) => return Err(syn::Error::new_spanned(item, "items are not supported in graphpack! closures")),
                 Stmt::Macro(mac) => return Err(syn::Error::new_spanned(mac, "macros are not supported in graphpack! closures")),
             }
         }
-        Ok(())
+        Ok(generated)
     }
 
     pub fn lower_statements(&mut self, statements: &[Stmt]) -> syn::Result<TokenStream> {
@@ -95,7 +93,7 @@ impl LoweringContext {
                     generated.extend(quote! { let #ident: ::tensorflow::Output = #value; });
                 }
                 Stmt::Expr(expr, semi) => {
-                    if semi.is_some() { if let Expr::If(if_expr) = expr { self.lower_if_statement(if_expr)?; } else { self.lower_expr(expr)?; } }
+                    if semi.is_some() { if let Expr::If(if_expr) = expr { generated.extend(self.lower_if_statement(if_expr)?); } else { let value = self.lower_expr(expr)?; generated.extend(quote! { let _ = #value; }); } }
                     else { final_expr = Some(self.lower_expr(expr)?); }
                 }
                 Stmt::Item(item) => return Err(syn::Error::new_spanned(item, "items are not supported in graphpack! closures")),
