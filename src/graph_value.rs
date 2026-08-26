@@ -68,14 +68,30 @@ impl GraphValue<bool> {
     }
 }
 
+trait GraphValueTupleMapFn<Args> {
+    type Output;
+    fn call(self, args: Args) -> Self::Output;
+}
+
+impl<F, Args, U> GraphValueTupleMapFn<Args> for F
+where
+    F: FnOnce(Args) -> U,
+{
+    type Output = U;
+
+    fn call(self, args: Args) -> Self::Output {
+        self(args)
+    }
+}
+
 pub trait GraphValueTupleMap: Sized {
     type GraphValues<'a>
     where
         Self: 'a;
 
-    fn map<U, Func>(&self, f: Func) -> U
+    fn map<Func>(&self, f: Func) -> <Func as GraphValueTupleMapFn<Self::GraphValues<'_>>>::Output
     where
-        Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U;
+        for<'a> Func: GraphValueTupleMapFn<Self::GraphValues<'a>>;
 }
 
 macro_rules! impl_graph_value_tuple_map {
@@ -86,12 +102,12 @@ macro_rules! impl_graph_value_tuple_map {
                 where
                     Self: 'a;
 
-                fn map<U, Func>(&self, f: Func) -> U
+                fn map<Func>(&self, f: Func) -> <Func as GraphValueTupleMapFn<Self::GraphValues<'_>>>::Output
                 where
-                    Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U,
+                    for<'a> Func: GraphValueTupleMapFn<Self::GraphValues<'a>>,
                 {
                     let ($( $value, )+) = self;
-                    f(($( $value, )+))
+                    f.call(($( $value, )+))
                 }
             }
         )+
@@ -177,6 +193,14 @@ macro_rules! impl_binary_ops {
         impl<T> $trait for &GraphValue<T> {
             type Output = GraphValue<T>;
             fn $method(self, rhs: Self) -> Self::Output { binary_op(self.clone(), rhs.clone(), $kind) }
+        }
+        impl<T> $trait<&GraphValue<T>> for GraphValue<T> {
+            type Output = GraphValue<T>;
+            fn $method(self, rhs: &GraphValue<T>) -> Self::Output { binary_op(self, rhs.clone(), $kind) }
+        }
+        impl<T> $trait<GraphValue<T>> for &GraphValue<T> {
+            type Output = GraphValue<T>;
+            fn $method(self, rhs: GraphValue<T>) -> Self::Output { binary_op(self.clone(), rhs, $kind) }
         }
     };
 }
