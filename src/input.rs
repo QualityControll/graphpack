@@ -1,29 +1,12 @@
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-/// A typed value in a GraphPack computation graph.
+use crate::graph_value::GraphValue;
+use crate::op::{Op, OpKind};
+
+/// A typed value entering a GraphPack computation graph.
 #[derive(Clone)]
 pub struct Input<T> {
-    op: Rc<Op>,
-    _marker: PhantomData<T>,
-}
-
-/// A node in the GraphPack computation graph.
-#[derive(Clone, Debug)]
-pub struct Op {
-    kind: OpKind,
-    inputs: Vec<Rc<Op>>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum OpKind {
-    Input { name: String },
-    Map,
-}
-
-/// A typed graph value passed to a transformation closure.
-#[derive(Clone)]
-pub struct GraphValue<T> {
     op: Rc<Op>,
     _marker: PhantomData<T>,
 }
@@ -31,36 +14,25 @@ pub struct GraphValue<T> {
 impl<T> Input<T> {
     pub fn new(name: impl Into<String>) -> Self {
         Self {
-            op: Rc::new(Op {
-                kind: OpKind::Input { name: name.into() },
-                inputs: Vec::new(),
-            }),
+            op: Rc::new(Op::new(
+                OpKind::Input { name: name.into() },
+                Vec::new(),
+            )),
             _marker: PhantomData,
         }
     }
 
-    /// Experimental `map` design: the closure receives a graph value rather
-    /// than runtime data, allowing normal Rust expressions to build graphs.
+    /// Applies a transformation to each element.
     pub fn map<U, F>(self, f: F) -> Input<U>
     where
         F: FnOnce(GraphValue<T>) -> GraphValue<U>,
     {
-        let value = GraphValue {
-            op: self.op.clone(),
-            _marker: PhantomData,
-        };
+        let value = GraphValue::from_op(self.op.clone());
         let result = f(value);
         Input {
-            op: Rc::new(Op {
-                kind: OpKind::Map,
-                inputs: vec![self.op, result.op],
-            }),
+            op: Rc::new(Op::new(OpKind::Map, vec![self.op, result.op])),
             _marker: PhantomData,
         }
-    }
-
-    pub(crate) fn op(&self) -> &Rc<Op> {
-        &self.op
     }
 
     pub fn filter<F>(self, _predicate: F) -> Input<T>
@@ -94,28 +66,9 @@ impl<T> Input<T> {
     pub fn collect(self) -> Self {
         self
     }
-}
-
-impl<T> GraphValue<T> {
-    pub(crate) fn from_op(op: Rc<Op>) -> Self {
-        Self {
-            op,
-            _marker: PhantomData,
-        }
-    }
 
     pub(crate) fn op(&self) -> &Rc<Op> {
         &self.op
-    }
-}
-
-impl Op {
-    pub fn kind(&self) -> &OpKind {
-        &self.kind
-    }
-
-    pub fn inputs(&self) -> &[Rc<Op>] {
-        &self.inputs
     }
 }
 
