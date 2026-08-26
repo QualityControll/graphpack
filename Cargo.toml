@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 tensorflow = "0.21.0"
+num-complex = "0.4"
