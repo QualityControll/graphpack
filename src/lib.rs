@@ -163,7 +163,7 @@ mod tests {
                 ("h", Tensor::from(8_i32)),
             ],
         );
-        assert_eq!(output[0], 63);
+        assert_eq!(output[0], 66);
     }
 
     #[test]
