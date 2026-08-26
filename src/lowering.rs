@@ -555,7 +555,7 @@ fn set_constant(
         ConstantValue::String(v) => {
             d.set_attr_type("dtype", DataType::String)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<String>::from(v.as_str()))
+            d.set_attr_tensor("value", Tensor::<String>::from(v.to_string()))
                 .map_err(|e| e.to_string())?;
         }
     }
