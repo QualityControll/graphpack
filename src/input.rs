@@ -100,8 +100,8 @@ macro_rules! impl_input_tuple_map {
                     for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U,
                 {
                     let ($( $value, )+) = self;
-                    let values = ($(GraphValue::from_op($value.op().clone()),)+);
-                    f(($( &values.$value, )+))
+                    $(let $value = GraphValue::from_op($value.op().clone());)+
+                    f(($( &$value, )+))
                 }
             }
         )+
@@ -128,8 +128,9 @@ impl<A: GraphType, B: GraphType> InputTupleMap for ((Input<A>, Input<B>),) {
         for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U,
     {
         let ((a, b),) = self;
-        let values = ((GraphValue::from_op(a.op().clone()), GraphValue::from_op(b.op().clone())),);
-        f(((&values.0.0, &values.0.1),))
+        let a = GraphValue::from_op(a.op().clone());
+        let b = GraphValue::from_op(b.op().clone());
+        f(((&a, &b),))
     }
 }
 
@@ -148,11 +149,11 @@ impl<A: GraphType, B: GraphType, C: GraphType, D: GraphType>
         for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U,
     {
         let ((a, b), (c, d)) = self;
-        let values = (
-            (GraphValue::from_op(a.op().clone()), GraphValue::from_op(b.op().clone())),
-            (GraphValue::from_op(c.op().clone()), GraphValue::from_op(d.op().clone())),
-        );
-        f(((&values.0.0, &values.0.1), (&values.1.0, &values.1.1)))
+        let a = GraphValue::from_op(a.op().clone());
+        let b = GraphValue::from_op(b.op().clone());
+        let c = GraphValue::from_op(c.op().clone());
+        let d = GraphValue::from_op(d.op().clone());
+        f(((&a, &b), (&c, &d)))
     }
 }
 
@@ -193,23 +194,14 @@ impl<
         for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U,
     {
         let ((a, b, c, d), (e, f, g, h)) = self;
-        let values = (
-            (
-                GraphValue::from_op(a.op().clone()),
-                GraphValue::from_op(b.op().clone()),
-                GraphValue::from_op(c.op().clone()),
-                GraphValue::from_op(d.op().clone()),
-            ),
-            (
-                GraphValue::from_op(e.op().clone()),
-                GraphValue::from_op(f.op().clone()),
-                GraphValue::from_op(g.op().clone()),
-                GraphValue::from_op(h.op().clone()),
-            ),
-        );
-        f((
-            (&values.0.0, &values.0.1, &values.0.2, &values.0.3),
-            (&values.1.0, &values.1.1, &values.1.2, &values.1.3),
-        ))
+        let a = GraphValue::from_op(a.op().clone());
+        let b = GraphValue::from_op(b.op().clone());
+        let c = GraphValue::from_op(c.op().clone());
+        let d = GraphValue::from_op(d.op().clone());
+        let e = GraphValue::from_op(e.op().clone());
+        let f = GraphValue::from_op(f.op().clone());
+        let g = GraphValue::from_op(g.op().clone());
+        let h = GraphValue::from_op(h.op().clone());
+        f(((&a, &b, &c, &d), (&e, &f, &g, &h)))
     }
 }
