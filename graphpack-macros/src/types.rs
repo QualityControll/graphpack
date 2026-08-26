@@ -13,6 +13,7 @@ pub enum ScalarType {
     U16,
     U32,
     U64,
+    Usize,
     F32,
     F64,
 }
@@ -38,6 +39,7 @@ impl ScalarType {
                     GenericArgument::Type(Type::Path(path)) if path.path.is_ident("u16") => Ok(Self::U16),
                     GenericArgument::Type(Type::Path(path)) if path.path.is_ident("u32") => Ok(Self::U32),
                     GenericArgument::Type(Type::Path(path)) if path.path.is_ident("u64") => Ok(Self::U64),
+                    GenericArgument::Type(Type::Path(path)) if path.path.is_ident("usize") => Ok(Self::Usize),
                     GenericArgument::Type(Type::Path(path)) if path.path.is_ident("f32") => Ok(Self::F32),
                     GenericArgument::Type(Type::Path(path)) if path.path.is_ident("f64") => Ok(Self::F64),
                     other => Err(syn::Error::new_spanned(other, "graphpack! unsupported Input<T> scalar type")),
@@ -57,6 +59,7 @@ impl ScalarType {
             Self::U8 => quote!(::tensorflow::DataType::UInt8),
             Self::U16 => quote!(::tensorflow::DataType::UInt16),
             Self::U32 => quote!(::tensorflow::DataType::UInt32),
+            Self::Usize => quote!(::tensorflow::DataType::UInt64),
             Self::U64 => quote!(::tensorflow::DataType::UInt64),
             Self::F32 => quote!(::tensorflow::DataType::Float),
             Self::F64 => quote!(::tensorflow::DataType::Double),
@@ -73,7 +76,7 @@ impl ScalarType {
             Self::U8 => quote!(u8),
             Self::U16 => quote!(u16),
             Self::U32 => quote!(u32),
-            Self::U64 => quote!(u64),
+            Self::Usize | Self::U64 => quote!(u64),
             Self::F32 => quote!(f32),
             Self::F64 => quote!(f64),
         }
