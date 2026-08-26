@@ -25,9 +25,9 @@ impl<T> GraphValue<T> {
 
     pub fn map<U, F>(self, f: F) -> U
     where
-        F: FnOnce(&GraphValue<T>) -> U,
+        F: FnOnce(GraphValue<T>) -> U,
     {
-        f(&GraphValue::from_op(self.op))
+        f(self)
     }
 
     pub fn collect(&self) -> tensorflow::Graph {
@@ -36,59 +36,38 @@ impl<T> GraphValue<T> {
             .expect("failed to lower GraphPack graph to TensorFlow")
     }
 
-    pub fn eq(&self, rhs: &GraphValue<T>) -> GraphValue<bool> {
-        comparison(self.clone(), rhs.clone(), OpKind::Equal)
-    }
-    pub fn ne(&self, rhs: &GraphValue<T>) -> GraphValue<bool> {
-        comparison(self.clone(), rhs.clone(), OpKind::NotEqual)
-    }
-    pub fn lt(&self, rhs: &GraphValue<T>) -> GraphValue<bool> {
-        comparison(self.clone(), rhs.clone(), OpKind::Less)
-    }
-    pub fn le(&self, rhs: &GraphValue<T>) -> GraphValue<bool> {
-        comparison(self.clone(), rhs.clone(), OpKind::LessEqual)
-    }
-    pub fn gt(&self, rhs: &GraphValue<T>) -> GraphValue<bool> {
-        comparison(self.clone(), rhs.clone(), OpKind::Greater)
-    }
-    pub fn ge(&self, rhs: &GraphValue<T>) -> GraphValue<bool> {
-        comparison(self.clone(), rhs.clone(), OpKind::GreaterEqual)
-    }
+    pub fn eq(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::Equal) }
+    pub fn ne(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::NotEqual) }
+    pub fn lt(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::Less) }
+    pub fn le(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::LessEqual) }
+    pub fn gt(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::Greater) }
+    pub fn ge(&self, rhs: &GraphValue<T>) -> GraphValue<bool> { comparison(self.clone(), rhs.clone(), OpKind::GreaterEqual) }
 }
 
 impl GraphValue<bool> {
-    pub fn and(&self, rhs: &GraphValue<bool>) -> GraphValue<bool> {
-        binary_op(self.clone(), rhs.clone(), OpKind::LogicalAnd)
-    }
-    pub fn or(&self, rhs: &GraphValue<bool>) -> GraphValue<bool> {
-        binary_op(self.clone(), rhs.clone(), OpKind::LogicalOr)
-    }
-    pub fn not(&self) -> GraphValue<bool> {
-        unary_op(self.clone(), OpKind::LogicalNot)
-    }
+    pub fn and(&self, rhs: &GraphValue<bool>) -> GraphValue<bool> { binary_op(self.clone(), rhs.clone(), OpKind::LogicalAnd) }
+    pub fn or(&self, rhs: &GraphValue<bool>) -> GraphValue<bool> { binary_op(self.clone(), rhs.clone(), OpKind::LogicalOr) }
+    pub fn not(&self) -> GraphValue<bool> { unary_op(self.clone(), OpKind::LogicalNot) }
 }
 
 pub trait GraphValueTupleMap: Sized {
-    type GraphValues<'a> where Self: 'a;
-
-    fn map<U, Func>(&self, f: Func) -> U
+    type GraphValues;
+    fn map<U, Func>(self, f: Func) -> U
     where
-        for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U;
+        Func: FnOnce(Self::GraphValues) -> U;
 }
 
 macro_rules! impl_graph_value_tuple_map {
     ($(($($value:ident),+)),+ $(,)?) => {
         $(
             impl<$($value),+> GraphValueTupleMap for ($(GraphValue<$value>,)+) {
-                type GraphValues<'a> = ($( &'a GraphValue<$value>, )+)
-                where Self: 'a;
+                type GraphValues = ($(GraphValue<$value>,)+);
 
-                fn map<U, Func>(&self, f: Func) -> U
+                fn map<U, Func>(self, f: Func) -> U
                 where
-                    for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U,
+                    Func: FnOnce(Self::GraphValues) -> U,
                 {
-                    let ($( $value, )+) = self;
-                    f(($( $value, )+))
+                    f(self)
                 }
             }
         )+
