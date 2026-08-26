@@ -7,9 +7,6 @@ pub struct Input<T> {
 }
 
 /// Runs a serialized GraphDef in a local TensorFlow session, feeding f32 inputs.
-///
-/// The graph is executed without requesting outputs. This is useful for validating
-/// that the generated graph can be imported and executed by TensorFlow.
 pub fn run_graph(graph_def: &[u8], inputs: &[(&str, &[f32])]) -> tensorflow::Result<()> {
     let mut graph = tensorflow::Graph::new();
     let options = tensorflow::ImportGraphDefOptions::new();
@@ -31,7 +28,6 @@ pub fn run_graph(graph_def: &[u8], inputs: &[(&str, &[f32])]) -> tensorflow::Res
     for ((name, _), tensor) in inputs.iter().zip(tensors.iter()) {
         let operation = graph.operation_by_name_required(name)?;
         args.add_feed(&operation, 0, tensor);
-        args.add_target(&operation);
     }
 
     session.run(&mut args)
@@ -42,7 +38,7 @@ mod tests {
     use super::{graphpack, run_graph, Input};
 
     #[test]
-    fn graphpack_input_graph_runs() {
+    fn graphpack_input_graph_imports_and_runs() {
         let graph_def = graphpack!(|x: Input<f32>| {});
 
         run_graph(&graph_def, &[("x", &[1.0, 2.0, 3.0])]).unwrap();
