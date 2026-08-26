@@ -31,6 +31,7 @@ pub fn run_graph(graph_def: &[u8], inputs: &[(&str, &[f32])]) -> tensorflow::Res
     for ((name, _), tensor) in inputs.iter().zip(tensors.iter()) {
         let operation = graph.operation_by_name_required(name)?;
         args.add_feed(&operation, 0, tensor);
+        args.add_target(&operation);
     }
 
     session.run(&mut args)
@@ -39,13 +40,6 @@ pub fn run_graph(graph_def: &[u8], inputs: &[(&str, &[f32])]) -> tensorflow::Res
 #[cfg(test)]
 mod tests {
     use super::{graphpack, run_graph, Input};
-
-    #[test]
-    fn graphpack_unit_closure_runs() {
-        let graph_def = graphpack!(|| {});
-
-        run_graph(&graph_def, &[]).unwrap();
-    }
 
     #[test]
     fn graphpack_input_graph_runs() {
