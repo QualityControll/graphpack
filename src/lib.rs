@@ -55,4 +55,33 @@ mod tests {
         let output = run_graph(&graph, "x", Tensor::from(3.0_f32));
         assert_eq!(output[0], 21.0);
     }
+
+    #[test]
+    fn bitwise_operators_work_in_map() {
+        let x = Input::<i32>::new("x");
+        let graph = x
+            .map(|v| ((v & 0b1111) ^ 0b0011) | 0b1000)
+            .collect();
+
+        let output = run_graph(&graph, "x", Tensor::from(0b0101_i32));
+        assert_eq!(output[0], 0b1110);
+    }
+
+    #[test]
+    fn bitwise_not_works_in_map() {
+        let x = Input::<i32>::new("x");
+        let graph = x.map(|v| !v).collect();
+
+        let output = run_graph(&graph, "x", Tensor::from(0_i32));
+        assert_eq!(output[0], !0_i32);
+    }
+
+    #[test]
+    fn bitwise_shifts_work_in_map() {
+        let x = Input::<i32>::new("x");
+        let graph = x.map(|v| (v << 2) >> 1).collect();
+
+        let output = run_graph(&graph, "x", Tensor::from(3_i32));
+        assert_eq!(output[0], 6);
+    }
 }
