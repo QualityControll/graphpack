@@ -11,7 +11,7 @@ impl GraphType for usize { fn scalar_type() -> ScalarType { ScalarType::I64 } }
 impl GraphType for bool { fn scalar_type() -> ScalarType { ScalarType::Bool } }
 #[derive(Clone, Debug)] pub struct Op { kind: OpKind, inputs: Vec<Rc<Op>> }
 #[derive(Clone, Debug, PartialEq)]
-pub enum OpKind { Input { name: String, dtype: ScalarType }, Constant { value: ConstantValue }, Map, Filter, Add, Sub, Mul, Div, Neg, BitAnd, BitOr, BitXor, BitwiseNot, Shl, Shr, Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual }
+pub enum OpKind { Input { name: String, dtype: ScalarType }, Constant { value: ConstantValue }, Map, Filter, Add, Sub, Mul, Div, Neg, BitAnd, BitOr, BitXor, BitwiseNot, Shl, Shr, Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual, LogicalAnd, LogicalOr, LogicalNot }
 #[derive(Clone, Debug, PartialEq)] pub enum ConstantValue { F32(f32), F64(f64), I32(i32), I64(i64), Bool(bool) }
 impl ConstantValue { pub fn scalar_type(&self) -> ScalarType { match self { Self::F32(_) => ScalarType::F32, Self::F64(_) => ScalarType::F64, Self::I32(_) => ScalarType::I32, Self::I64(_) => ScalarType::I64, Self::Bool(_) => ScalarType::Bool } } }
 impl Op { pub(crate) fn new(kind: OpKind, inputs: Vec<Rc<Op>>) -> Self { Self { kind, inputs } } pub fn kind(&self) -> &OpKind { &self.kind } pub fn inputs(&self) -> &[Rc<Op>] { &self.inputs } }
