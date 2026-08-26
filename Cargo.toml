@@ -1,3 +1,0 @@
-[workspace]
-members = ["graphpack", "graphpack-macros"]
-resolver = "2"
