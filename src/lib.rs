@@ -72,7 +72,8 @@ mod tests {
             Input::<i32>::new("a"), Input::<i32>::new("b"), Input::<i32>::new("c"), Input::<i32>::new("d"),
             Input::<i32>::new("e"), Input::<i32>::new("f"), Input::<i32>::new("g"), Input::<i32>::new("h"),
         );
-        let graph = inputs.map(|(a, b, c, d, e, f, g, h)| a + b + c + d + e + f + g + h).collect();
+        let graph: GraphValue<i32> = inputs.map(|(a, b, c, d, e, f, g, h)| a + b + c + d + e + f + g + h);
+        let graph = graph.collect();
         let output: Tensor<i32> = run_graph(&graph, vec![
             ("a", Tensor::from(1_i32)), ("b", Tensor::from(2_i32)), ("c", Tensor::from(3_i32)), ("d", Tensor::from(4_i32)),
             ("e", Tensor::from(5_i32)), ("f", Tensor::from(6_i32)), ("g", Tensor::from(7_i32)), ("h", Tensor::from(8_i32)),
@@ -114,7 +115,8 @@ mod tests {
     fn tuple_valued_map_results_can_be_destructured() {
         let x = Input::<i32>::new("x");
         let tuple = x.map(|v| (v + 1, v * 2));
-        let graph = tuple.map(|(a, b)| a * b).collect();
+        let graph: GraphValue<i32> = tuple.map(|(a, b)| a * b);
+        let graph = graph.collect();
         let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(4_i32))]);
         assert_eq!(output[0], 40);
     }
@@ -123,7 +125,8 @@ mod tests {
     fn tuple_valued_map_results_can_be_chained() {
         let x = Input::<i32>::new("x");
         let tuple = x.map(|v| (v + 1, v * 2));
-        let graph = tuple.map(|(a, b)| (a + b, a * b)).map(|(sum, product)| sum + product).collect();
+        let graph: GraphValue<i32> = tuple.map(|(a, b)| (a + b, a * b)).map(|(sum, product)| sum + product);
+        let graph = graph.collect();
         let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(4_i32))]);
         assert_eq!(output[0], 50);
     }
@@ -132,7 +135,8 @@ mod tests {
     fn tuple_valued_map_results_support_three_values() {
         let x = Input::<i32>::new("x");
         let tuple = x.map(|v| (v, v + 1, v + 2));
-        let graph = tuple.map(|(a, b, c)| a + b + c).collect();
+        let graph: GraphValue<i32> = tuple.map(|(a, b, c)| a + b + c);
+        let graph = graph.collect();
         let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(4_i32))]);
         assert_eq!(output[0], 15);
     }
