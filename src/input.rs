@@ -84,6 +84,33 @@ pub trait InputTupleMap {
         F: FnOnce(Self::GraphValues) -> GraphValue<U>;
 }
 
+macro_rules! impl_input_tuple_map {
+    ($(($($input:ident, $value:ident),+)),+ $(,)?) => {
+        $(
+            impl<$($input: GraphType),+> InputTupleMap for ($(Input<$input>,)+) {
+                type GraphValues = ($(GraphValue<$input>,)+);
+
+                fn map<U, F>(self, f: F) -> GraphValue<U>
+                where
+                    F: FnOnce(Self::GraphValues) -> GraphValue<U>,
+                {
+                    f(($(GraphValue::from_op(self.$value.op),)+))
+                }
+            }
+        )+
+    };
+}
+
+impl_input_tuple_map!(
+    (A, a),
+    (A, a),
+    (A, a),
+    (A, a),
+    (A, a),
+    (A, a),
+    (A, a),
+);
+
 impl<A: GraphType, B: GraphType> InputTupleMap for (Input<A>, Input<B>) {
     type GraphValues = (GraphValue<A>, GraphValue<B>);
 
