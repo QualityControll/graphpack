@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use ::tensorflow::{DataType, Graph as TensorFlowGraph, Shape, Tensor};
 use crate::graph::Graph;
@@ -8,13 +8,15 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
     let mut tensorflow_graph = TensorFlowGraph::new();
     let mut lowered: HashMap<*const Op, ::tensorflow::Operation> = HashMap::new();
     let output_ptr = Rc::as_ptr(graph.output());
+    let filter_inputs = collect_filter_inputs(graph.output());
     for op in graph.operations() {
         let op_ptr = Rc::as_ptr(op);
         let operation = match op.kind() {
             OpKind::Input { name, dtype } => {
                 let mut desc = tensorflow_graph.new_operation("Placeholder", name).map_err(|e| e.to_string())?;
                 desc.set_attr_type("dtype", data_type(*dtype)).map_err(|e| e.to_string())?;
-                desc.set_attr_shape("shape", &Shape::new(Some(vec![]))).map_err(|e| e.to_string())?;
+                let shape = if filter_inputs.contains(&op_ptr) { Shape::new(Some(vec![None])) } else { Shape::new(Some(vec![])) };
+                desc.set_attr_shape("shape", &shape).map_err(|e| e.to_string())?;
                 desc.finish().map_err(|e| e.to_string())?
             }
             OpKind::Constant { value } => {
@@ -22,22 +24,7 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
                 set_constant(&mut desc, value)?;
                 desc.finish().map_err(|e| e.to_string())?
             }
-            OpKind::Filter => {
-                // Filter is lowered as a TensorFlow SelectV2.  This keeps the
-                // result tensor shape stable while making the predicate part
-                // of the executable graph. Dynamic-length collection semantics
-                // will be added when Input is generalized to vector inputs.
-                let mut desc = tensorflow_graph.new_operation("SelectV2", &node_name(op_ptr, output_ptr)).map_err(|e| e.to_string())?;
-                let value = lowered.get(&Rc::as_ptr(&op.inputs()[0])).ok_or_else(|| "filter value was not lowered".to_string())?;
-                let predicate = lowered.get(&Rc::as_ptr(&op.inputs()[1])).ok_or_else(|| "filter predicate was not lowered".to_string())?;
-                let mut false_value = tensorflow_graph.new_operation("ZerosLike", &format!("{}_false", node_name(op_ptr, output_ptr))).map_err(|e| e.to_string())?;
-                false_value.add_input(value.clone());
-                let false_value = false_value.finish().map_err(|e| e.to_string())?;
-                desc.add_input(predicate.clone());
-                desc.add_input(value.clone());
-                desc.add_input(false_value);
-                desc.finish().map_err(|e| e.to_string())?
-            }
+            OpKind::Filter => lower_filter(&mut tensorflow_graph, op, &lowered, &node_name(op_ptr, output_ptr))?,
             _ => {
                 let op_type = match op.kind() {
                     OpKind::Add => "Add", OpKind::Sub => "Sub", OpKind::Mul => "Mul", OpKind::Div => "Div", OpKind::Neg => "Neg",
@@ -58,6 +45,42 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
         lowered.insert(op_ptr, operation);
     }
     Ok(tensorflow_graph)
+}
+
+fn lower_filter(graph: &mut TensorFlowGraph, op: &Op, lowered: &HashMap<*const Op, ::tensorflow::Operation>, name: &str) -> Result<::tensorflow::Operation, String> {
+    let value = lowered.get(&Rc::as_ptr(&op.inputs()[0])).ok_or_else(|| "filter value was not lowered".to_string())?;
+    let predicate = lowered.get(&Rc::as_ptr(&op.inputs()[1])).ok_or_else(|| "filter predicate was not lowered".to_string())?;
+
+    let mut where_desc = graph.new_operation("Where", &format!("{name}_where")).map_err(|e| e.to_string())?;
+    where_desc.add_input(predicate.clone());
+    let where_op = where_desc.finish().map_err(|e| e.to_string())?;
+
+    let mut squeeze_desc = graph.new_operation("Squeeze", &format!("{name}_squeeze")).map_err(|e| e.to_string())?;
+    squeeze_desc.add_input(where_op);
+    squeeze_desc.set_attr_int_list("squeeze_dims", &[1]).map_err(|e| e.to_string())?;
+    let indices = squeeze_desc.finish().map_err(|e| e.to_string())?;
+
+    let mut axis_desc = graph.new_operation("Const", &format!("{name}_axis")).map_err(|e| e.to_string())?;
+    axis_desc.set_attr_type("dtype", DataType::Int32).map_err(|e| e.to_string())?;
+    axis_desc.set_attr_tensor("value", Tensor::<i32>::from(0)).map_err(|e| e.to_string())?;
+    let axis = axis_desc.finish().map_err(|e| e.to_string())?;
+
+    let mut gather_desc = graph.new_operation("GatherV2", name).map_err(|e| e.to_string())?;
+    gather_desc.add_input(value.clone());
+    gather_desc.add_input(indices);
+    gather_desc.add_input(axis);
+    gather_desc.finish().map_err(|e| e.to_string())
+}
+
+fn collect_filter_inputs(root: &Rc<Op>) -> HashSet<*const Op> {
+    let mut result = HashSet::new();
+    collect_filter_inputs_impl(root, false, &mut result);
+    result
+}
+fn collect_filter_inputs_impl(op: &Rc<Op>, under_filter: bool, result: &mut HashSet<*const Op>) {
+    let under_filter = under_filter || matches!(op.kind(), OpKind::Filter);
+    if under_filter && matches!(op.kind(), OpKind::Input { .. }) { result.insert(Rc::as_ptr(op)); }
+    for input in op.inputs() { collect_filter_inputs_impl(input, under_filter, result); }
 }
 fn data_type(dtype: ScalarType) -> DataType { match dtype { ScalarType::F32 => DataType::Float, ScalarType::F64 => DataType::Double, ScalarType::I32 => DataType::Int32, ScalarType::I64 => DataType::Int64, ScalarType::Bool => DataType::Bool } }
 fn set_constant(desc: &mut ::tensorflow::OperationDescription<'_>, value: &ConstantValue) -> Result<(), String> { match value {
