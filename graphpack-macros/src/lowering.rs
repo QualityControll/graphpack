@@ -1,7 +1,7 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::HashMap;
-use syn::{Expr, ExprBinary, ExprLit, ExprPath, ExprUnary, Lit, Stmt};
+use syn::{Expr, ExprBinary, ExprIf, ExprLit, ExprPath, ExprUnary, Lit, Stmt};
 
 use crate::ops;
 use crate::scalar_types::ScalarType;
@@ -100,6 +100,35 @@ impl LoweringContext {
                         .expect("failed to create operation");
                     operation.add_input(input_output);
                     let operation = operation.finish().expect("failed to finish operation");
+                    ::tensorflow::Output::from(operation)
+                }))
+            }
+            Expr::If(ExprIf { cond, then_branch, else_branch, .. }) => {
+                let condition = self.lower_expr(cond)?;
+                let outer_values = self.values.clone();
+
+                let then_value = self.lower_statements(&then_branch.stmts)?;
+                self.values = outer_values.clone();
+
+                let else_branch = else_branch.as_ref().ok_or_else(|| {
+                    syn::Error::new_spanned(expr, "graphpack! if expressions require an else branch")
+                })?;
+                let else_value = self.lower_expr(&else_branch.1)?;
+                self.values = outer_values;
+
+                let node_name = self.node_name("if");
+                Ok(quote!({
+                    let condition_output: ::tensorflow::Output = #condition;
+                    let then_output: ::tensorflow::Output = #then_value;
+                    let else_output: ::tensorflow::Output = #else_value;
+                    let mut operation = graph
+                        .new_operation("SelectV2", #node_name)
+                        .expect("failed to create conditional operation");
+                    operation.add_input(condition_output);
+                    operation.add_input(then_output);
+                    operation.add_input(else_output);
+                    let operation = operation.finish()
+                        .expect("failed to finish conditional operation");
                     ::tensorflow::Output::from(operation)
                 }))
             }
