@@ -13,10 +13,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn map_closure_can_be_materialized() {
+    fn map_closure_can_be_collected_into_graph() {
         let x = Input::<f32>::new("x");
         let y = x.map(|v| v * 2.0 + 1.0);
-        let graph = y.materialize();
+        let graph = y.collect();
 
         assert_eq!(graph.output().kind(), &OpKind::Map);
         assert_eq!(graph.operations().len(), 6);
