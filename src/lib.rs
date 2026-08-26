@@ -2,19 +2,20 @@ mod graph;
 mod graph_value;
 mod input;
 mod op;
-mod scalars;
 mod tensorflow;
 
 pub use graph::Graph;
 pub use graph_value::GraphValue;
 pub use input::Input;
 pub use op::{ConstantValue, GraphType, Op, OpKind, ScalarType};
-pub use scalars::{Complex128, Complex64};
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ::tensorflow::{Graph as TensorFlowGraph, Operation, Session, SessionOptions, SessionRunArgs, Tensor, TensorType};
+    use ::tensorflow::{
+        Graph as TensorFlowGraph, Operation, Session, SessionOptions, SessionRunArgs, Tensor,
+        TensorType,
+    };
     use num_complex::Complex;
 
     fn run_graph<T: TensorType, U: TensorType>(
@@ -137,7 +138,7 @@ mod tests {
 
     #[test]
     fn complex64_works_in_map() {
-        let x = Input::<Complex64>::new("x");
+        let x = Input::<Complex<f32>>::new("x");
         let graph = x
             .map(|v| v * Complex::new(2.0_f32, 1.0_f32))
             .collect();
@@ -151,7 +152,7 @@ mod tests {
 
     #[test]
     fn complex128_works_in_map() {
-        let x = Input::<Complex128>::new("x");
+        let x = Input::<Complex<f64>>::new("x");
         let graph = x
             .map(|v| v * Complex::new(2.0_f64, 1.0_f64))
             .collect();
@@ -165,7 +166,7 @@ mod tests {
 
     #[test]
     fn complex64_constants_work_in_map() {
-        let x = Input::<Complex64>::new("x");
+        let x = Input::<Complex<f32>>::new("x");
         let graph = x
             .map(|v| v + Complex::new(1.0_f32, 2.0_f32))
             .collect();
@@ -179,7 +180,7 @@ mod tests {
 
     #[test]
     fn complex128_constants_work_in_map() {
-        let x = Input::<Complex128>::new("x");
+        let x = Input::<Complex<f64>>::new("x");
         let graph = x
             .map(|v| v + Complex::new(1.0_f64, 2.0_f64))
             .collect();
