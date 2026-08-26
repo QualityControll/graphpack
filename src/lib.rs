@@ -1,8 +1,8 @@
 mod graph;
 mod graph_value;
 mod input;
-mod op;
 mod lowering;
+mod op;
 
 pub use graph::Graph;
 pub use graph_value::GraphValue;
