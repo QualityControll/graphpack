@@ -7,7 +7,7 @@ use crate::op::{GraphType, Op, OpKind};
 #[derive(Clone, Copy)] pub struct GraphSeq<T> { pub(crate) node: crate::op::NodeId, _marker: PhantomData<fn() -> T> }
 impl<T> GraphSeq<T> { pub(crate) fn from_node(node:crate::op::NodeId)->Self{Self{node,_marker:PhantomData}} pub fn collect(&self)->tensorflow::Graph{Graph::from_output(self.node).to_tensorflow().expect("failed to lower GraphPack graph to TensorFlow")} }
 impl<T:GraphType> Input<T> {
- pub fn new(name: impl Into<String>) -> Self { Self { node: crate::graph::insert(Op::new(OpKind::Input{name:name.into(),dtype:T::scalar_type()},Vec::new())), _marker:PhantomData } }
+ pub fn new(name: impl Into<String>) -> Self { Self { node: crate::graph::insert(Op::new(OpKind::Input{name:name.into(),dtype:T::scalar_type()},Vec::new())), _marker: PhantomData } }
  pub fn map<U,F>(self,f:F)->GraphValue<U> where F:FnOnce(GraphValue<T>)->GraphValue<U>{f(GraphValue::from_node(self.node))}
  pub fn sequence(self)->GraphSeq<T>{GraphSeq::from_node(self.node)}
  pub fn filter<F>(self,predicate:F)->GraphSeq<T> where F:FnOnce(GraphValue<T>)->GraphValue<bool>{GraphSeq::from_node(crate::graph::insert(Op::new(OpKind::Filter,vec![self.node,predicate(GraphValue::from_node(self.node)).node])))}
@@ -22,8 +22,8 @@ impl<T> GraphSeq<T>{
  pub fn filter<F>(self,predicate:F)->GraphSeq<T> where F:FnOnce(GraphValue<T>)->GraphValue<bool>{let p=predicate(GraphValue::from_node(self.node));GraphSeq::from_node(crate::graph::insert(Op::new(OpKind::Filter,vec![self.node,p.node])))}
  pub fn take(self,count:usize)->Self{Self::from_node(crate::graph::insert(Op::new(OpKind::Take{count},vec![self.node])))}
  pub fn skip(self,count:usize)->Self{Self::from_node(crate::graph::insert(Op::new(OpKind::Skip{count},vec![self.node])))}
- pub fn enumerate(self)->GraphSeq<(i64,T)>{Self::from_node(crate::graph::insert(Op::new(OpKind::Enumerate,vec![self.node])))}
- pub fn zip<U>(self,other:GraphSeq<U>)->GraphSeq<(T,U)>{Self::from_node(crate::graph::insert(Op::new(OpKind::Zip,vec![self.node,other.node])))}
+ pub fn enumerate(self)->GraphSeq<(i64,T)>{GraphSeq::<(i64,T)>::from_node(crate::graph::insert(Op::new(OpKind::Enumerate,vec![self.node])))}
+ pub fn zip<U>(self,other:GraphSeq<U>)->GraphSeq<(T,U)>{GraphSeq::<(T,U)>::from_node(crate::graph::insert(Op::new(OpKind::Zip,vec![self.node,other.node])))}
  pub fn sum(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceSum,vec![self.node])))}
  pub fn product(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceProduct,vec![self.node])))}
  pub fn min(self)->GraphValue<T>{GraphValue::from_node(crate::graph::insert(Op::new(OpKind::ReduceMin,vec![self.node])))}
