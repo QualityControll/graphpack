@@ -24,11 +24,7 @@ mod tests {
         input: Tensor<T>,
     ) -> Tensor<U> {
         let x_op: Operation = graph.operation_by_name(input_name).unwrap().unwrap();
-        let output_op: Operation = match graph.operation_by_name("output") {
-            Ok(Some(operation)) => operation,
-            Ok(None) => x_op.clone(),
-            Err(error) => panic!("failed to find output operation: {error}"),
-        };
+        let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
         let mut args = SessionRunArgs::new();
         args.add_feed(&x_op, 0, &input);
         let token = args.request_fetch(&output_op, 0);
@@ -150,9 +146,9 @@ mod tests {
     #[test]
     fn string_scalar_type_works() {
         let x = Input::<String>::new("x");
-        let graph = x.map(|v| v).collect();
+        let graph = x.map(|v| v.eq_scalar("hello")).collect();
         let input = Tensor::new(&[1]).with_values(&["hello".to_string()]).unwrap();
-        let output: Tensor<String> = run_graph(&graph, "x", input);
-        assert_eq!(output[0], "hello");
+        let output: Tensor<bool> = run_graph(&graph, "x", input);
+        assert!(output[0]);
     }
 }
