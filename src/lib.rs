@@ -20,23 +20,8 @@ mod tests {
 
     fn run_graph<T: TensorType, U: TensorType>(
         graph: &TensorFlowGraph,
-        input_name: &str,
-        input: Tensor<T>,
+        inputs: Vec<(&str, Tensor<T>)>,
     ) -> Tensor<U> {
-        let x_op: Operation = graph.operation_by_name(input_name).unwrap().unwrap();
-        let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
-        let mut args = SessionRunArgs::new();
-        args.add_feed(&x_op, 0, &input);
-        let token = args.request_fetch(&output_op, 0);
-        let session = Session::new(&SessionOptions::new(), graph).unwrap();
-        session.run(&mut args).unwrap();
-        args.fetch(token).unwrap()
-    }
-
-    fn run_graph_with_inputs(
-        graph: &TensorFlowGraph,
-        inputs: Vec<(&str, Tensor<i32>)>,
-    ) -> Tensor<i32> {
         let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
         let mut input_ops = Vec::with_capacity(inputs.len());
 
@@ -60,7 +45,7 @@ mod tests {
     fn map_lowers_to_executable_tensorflow_graph() {
         let x = Input::<f32>::new("x");
         let graph = x.map(|v| v * 2.0 + 1.0).collect();
-        let output: Tensor<f32> = run_graph(&graph, "x", Tensor::from(3.0_f32));
+        let output: Tensor<f32> = run_graph(&graph, vec![("x", Tensor::from(3.0_f32))]);
         assert_eq!(output[0], 7.0);
     }
 
@@ -72,7 +57,7 @@ mod tests {
             .map(|v| v + 1.0)
             .map(|v| v * 3.0)
             .collect();
-        let output: Tensor<f32> = run_graph(&graph, "x", Tensor::from(3.0_f32));
+        let output: Tensor<f32> = run_graph(&graph, vec![("x", Tensor::from(3.0_f32))]);
         assert_eq!(output[0], 21.0);
     }
 
@@ -81,7 +66,7 @@ mod tests {
         let x = Input::<i32>::new("x");
         let y = Input::<i32>::new("y");
         let graph = (x, y).map(|(x, y)| x + y).collect();
-        let output = run_graph_with_inputs(
+        let output: Tensor<i32> = run_graph(
             &graph,
             vec![("x", Tensor::from(3_i32)), ("y", Tensor::from(4_i32))],
         );
@@ -93,7 +78,7 @@ mod tests {
         let x = Input::<i32>::new("x");
         let y = Input::<i32>::new("y");
         let graph = (x, y).map(|(x, y)| x * 2 + y * 3).collect();
-        let output = run_graph_with_inputs(
+        let output: Tensor<i32> = run_graph(
             &graph,
             vec![("x", Tensor::from(3_i32)), ("y", Tensor::from(4_i32))],
         );
@@ -115,7 +100,7 @@ mod tests {
         let graph = inputs
             .map(|(a, b, c, d, e, f, g, h)| a + b + c + d + e + f + g + h)
             .collect();
-        let output = run_graph_with_inputs(
+        let output: Tensor<i32> = run_graph(
             &graph,
             vec![
                 ("a", Tensor::from(1_i32)),
@@ -137,8 +122,7 @@ mod tests {
         let graph = x.map(|v| v + Complex::new(1.0, 2.0)).collect();
         let output: Tensor<Complex<f32>> = run_graph(
             &graph,
-            "x",
-            Tensor::from(Complex::new(3.0_f32, 4.0_f32)),
+            vec![("x", Tensor::from(Complex::new(3.0_f32, 4.0_f32)))],
         );
         assert_eq!(output[0], Complex::new(4.0, 6.0));
     }
@@ -148,7 +132,7 @@ mod tests {
         let x = Input::<String>::new("x");
         let graph = x.map(|v| v.eq_scalar("hello")).collect();
         let input = Tensor::new(&[1]).with_values(&["hello".to_string()]).unwrap();
-        let output: Tensor<bool> = run_graph(&graph, "x", input);
+        let output: Tensor<bool> = run_graph(&graph, vec![("x", input)]);
         assert!(output[0]);
     }
 }
