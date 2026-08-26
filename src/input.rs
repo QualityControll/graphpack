@@ -189,7 +189,7 @@ impl<
     where
         Self: 'a;
 
-    fn map<U, Func>(&self, f: Func) -> U
+    fn map<U, Func>(&self, func: Func) -> U
     where
         for<'a> Func: FnOnce(Self::GraphValues<'a>) -> U,
     {
@@ -202,6 +202,6 @@ impl<
         let f = GraphValue::from_op(f.op().clone());
         let g = GraphValue::from_op(g.op().clone());
         let h = GraphValue::from_op(h.op().clone());
-        f(((&a, &b, &c, &d), (&e, &f, &g, &h)))
+        func(((&a, &b, &c, &d), (&e, &f, &g, &h)))
     }
 }
