@@ -20,6 +20,11 @@ impl Graph {
 
     pub fn operations(&self) -> &[Rc<Op>] { &self.operations }
     pub fn output(&self) -> &Rc<Op> { &self.output }
+
+    /// Lowers this GraphPack graph into an executable TensorFlow graph.
+    pub fn to_tensorflow(&self) -> Result<tensorflow::Graph, String> {
+        crate::tensorflow::lower(self)
+    }
 }
 
 fn collect(op: &Rc<Op>, visited: &mut HashSet<*const Op>, operations: &mut Vec<Rc<Op>>) {
