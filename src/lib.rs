@@ -24,7 +24,10 @@ mod tests {
         input: Tensor<T>,
     ) -> Tensor<U> {
         let x_op: Operation = graph.operation_by_name(input_name).unwrap().unwrap();
-        let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
+        let output_op: Operation = graph
+            .operation_by_name("output")
+            .unwrap_or_else(|| x_op.clone())
+            .unwrap();
         let mut args = SessionRunArgs::new();
         args.add_feed(&x_op, 0, &input);
         let token = args.request_fetch(&output_op, 0);
