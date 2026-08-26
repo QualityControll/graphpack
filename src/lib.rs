@@ -19,7 +19,7 @@ mod tests {
         let graph = y.collect();
 
         assert_eq!(graph.output().kind(), &OpKind::Add);
-        assert_eq!(graph.operations().len(), 4);
+        assert_eq!(graph.operations().len(), 5);
     }
 
     #[test]
@@ -32,6 +32,6 @@ mod tests {
         let graph = y.collect();
 
         assert_eq!(graph.output().kind(), &OpKind::Mul);
-        assert_eq!(graph.operations().len(), 6);
+        assert_eq!(graph.operations().len(), 7);
     }
 }
