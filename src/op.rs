@@ -19,6 +19,7 @@ pub enum OpKind {
     Input { name: String, dtype: ScalarType },
     Constant { value: ConstantValue },
     Map, Add, Sub, Mul, Div, Neg,
+    BitAnd, BitOr, BitXor, BitwiseNot, Shl, Shr,
 }
 
 #[derive(Clone, Debug, PartialEq)]
