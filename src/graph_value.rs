@@ -7,13 +7,11 @@ use std::rc::Rc;
 
 pub struct GraphValue<T> {
     pub(crate) op: Rc<Op>,
-    pub(crate) _marker: PhantomData<T>,
+    pub(crate) _marker: PhantomData<fn() -> T>,
 }
 
 impl<T> Clone for GraphValue<T> {
-    fn clone(&self) -> Self {
-        Self { op: self.op.clone(), _marker: PhantomData }
-    }
+    fn clone(&self) -> Self { Self { op: self.op.clone(), _marker: PhantomData } }
 }
 
 impl<T> GraphValue<T> {
@@ -52,21 +50,15 @@ fn binary_op<T>(lhs: GraphValue<T>, rhs: GraphValue<T>, kind: OpKind) -> GraphVa
 fn unary_op<T>(value: GraphValue<T>, kind: OpKind) -> GraphValue<T> { GraphValue::from_op(Rc::new(Op::new(kind, vec![value.op.clone()]))) }
 fn comparison<T>(lhs: GraphValue<T>, rhs: GraphValue<T>, kind: OpKind) -> GraphValue<bool> { GraphValue::from_op(Rc::new(Op::new(kind, vec![lhs.op.clone(), rhs.op.clone()]))) }
 
-macro_rules! impl_binary_ops {
-    ($trait:ident, $method:ident, $kind:expr) => {
-        impl<T> $trait for GraphValue<T> { type Output=GraphValue<T>; fn $method(self,rhs:Self)->Self::Output{binary_op(self,rhs,$kind)} }
-        impl<T> $trait for &GraphValue<T> { type Output=GraphValue<T>; fn $method(self,rhs:Self)->Self::Output{binary_op(self.clone(),rhs.clone(),$kind)} }
-        impl<T> $trait<&GraphValue<T>> for GraphValue<T> { type Output=GraphValue<T>; fn $method(self,rhs:&GraphValue<T>)->Self::Output{binary_op(self,rhs.clone(),$kind)} }
-        impl<T> $trait<GraphValue<T>> for &GraphValue<T> { type Output=GraphValue<T>; fn $method(self,rhs:GraphValue<T>)->Self::Output{binary_op(self.clone(),rhs,$kind)} }
-    };
-}
-impl_binary_ops!(Add,add,OpKind::Add);
-impl_binary_ops!(Sub,sub,OpKind::Sub);
-impl_binary_ops!(Mul,mul,OpKind::Mul);
-impl_binary_ops!(Div,div,OpKind::Div);
-
-impl<T> Neg for GraphValue<T> { type Output=GraphValue<T>; fn neg(self)->Self::Output{unary_op(self,OpKind::Neg)} }
-impl<T> Neg for &GraphValue<T> { type Output=GraphValue<T>; fn neg(self)->Self::Output{unary_op(self.clone(),OpKind::Neg)} }
+macro_rules! impl_binary_ops { ($trait:ident,$method:ident,$kind:expr) => {
+    impl<T> $trait for GraphValue<T>{type Output=GraphValue<T>;fn $method(self,rhs:Self)->Self::Output{binary_op(self,rhs,$kind)}}
+    impl<T> $trait for &GraphValue<T>{type Output=GraphValue<T>;fn $method(self,rhs:Self)->Self::Output{binary_op(self.clone(),rhs.clone(),$kind)}}
+    impl<T> $trait<&GraphValue<T>> for GraphValue<T>{type Output=GraphValue<T>;fn $method(self,rhs:&GraphValue<T>)->Self::Output{binary_op(self,rhs.clone(),$kind)}}
+    impl<T> $trait<GraphValue<T>> for &GraphValue<T>{type Output=GraphValue<T>;fn $method(self,rhs:GraphValue<T>)->Self::Output{binary_op(self.clone(),rhs,$kind)}}
+}; }
+impl_binary_ops!(Add,add,OpKind::Add); impl_binary_ops!(Sub,sub,OpKind::Sub); impl_binary_ops!(Mul,mul,OpKind::Mul); impl_binary_ops!(Div,div,OpKind::Div);
+impl<T> Neg for GraphValue<T>{type Output=GraphValue<T>;fn neg(self)->Self::Output{unary_op(self,OpKind::Neg)}}
+impl<T> Neg for &GraphValue<T>{type Output=GraphValue<T>;fn neg(self)->Self::Output{unary_op(self.clone(),OpKind::Neg)}}
 
 macro_rules! impl_scalar_ops { ($($t:ty),+) => { $(
     impl Add<$t> for GraphValue<$t>{type Output=GraphValue<$t>;fn add(self,rhs:$t)->Self::Output{binary_op(self,constant(rhs),OpKind::Add)}}
@@ -79,7 +71,6 @@ macro_rules! impl_scalar_ops { ($($t:ty),+) => { $(
     impl Div<$t> for &GraphValue<$t>{type Output=GraphValue<$t>;fn div(self,rhs:$t)->Self::Output{binary_op(self.clone(),constant(rhs),OpKind::Div)}}
 )+ }; }
 impl_scalar_ops!(f32,f64,i32,i64,usize,Complex<f32>,Complex<f64>);
-
 macro_rules! impl_bitwise_ops { ($($t:ty),+) => { $(
     impl BitAnd for GraphValue<$t>{type Output=GraphValue<$t>;fn bitand(self,rhs:Self)->Self::Output{binary_op(self,rhs,OpKind::BitAnd)}}
     impl BitAnd for &GraphValue<$t>{type Output=GraphValue<$t>;fn bitand(self,rhs:Self)->Self::Output{binary_op(self.clone(),rhs.clone(),OpKind::BitAnd)}}
@@ -91,7 +82,6 @@ macro_rules! impl_bitwise_ops { ($($t:ty),+) => { $(
     impl Not for &GraphValue<$t>{type Output=GraphValue<$t>;fn not(self)->Self::Output{unary_op(self.clone(),OpKind::BitwiseNot)}}
 )+ }; }
 impl_bitwise_ops!(i32,i64);
-
 impl Shl<u32> for GraphValue<i32>{type Output=GraphValue<i32>;fn shl(self,rhs:u32)->Self::Output{binary_op(self,constant(rhs as i32),OpKind::Shl)}}
 impl Shl<u32> for &GraphValue<i32>{type Output=GraphValue<i32>;fn shl(self,rhs:u32)->Self::Output{binary_op(self.clone(),constant(rhs as i32),OpKind::Shl)}}
 impl Shr<u32> for GraphValue<i32>{type Output=GraphValue<i32>;fn shr(self,rhs:u32)->Self::Output{binary_op(self,constant(rhs as i32),OpKind::Shr)}}
