@@ -111,3 +111,77 @@ impl_input_tuple_map!(
     (A, a, B, b, C, c, D, d, E, e, F, f, G, g),
     (A, a, B, b, C, c, D, d, E, e, F, f, G, g, H, h),
 );
+
+impl<A: GraphType, B: GraphType> InputTupleMap for ((Input<A>, Input<B>),) {
+    type GraphValues = ((GraphValue<A>, GraphValue<B>),);
+
+    fn map<U, Func>(self, f: Func) -> GraphValue<U>
+    where
+        Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
+    {
+        let ((a, b),) = self;
+        f(((GraphValue::from_op(a.op), GraphValue::from_op(b.op)),))
+    }
+}
+
+impl<A: GraphType, B: GraphType, C: GraphType, D: GraphType>
+    InputTupleMap for ((Input<A>, Input<B>), (Input<C>, Input<D>))
+{
+    type GraphValues = (
+        (GraphValue<A>, GraphValue<B>),
+        (GraphValue<C>, GraphValue<D>),
+    );
+
+    fn map<U, Func>(self, f: Func) -> GraphValue<U>
+    where
+        Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
+    {
+        let ((a, b), (c, d)) = self;
+        f((
+            (GraphValue::from_op(a.op), GraphValue::from_op(b.op)),
+            (GraphValue::from_op(c.op), GraphValue::from_op(d.op)),
+        ))
+    }
+}
+
+impl<
+    A: GraphType,
+    B: GraphType,
+    C: GraphType,
+    D: GraphType,
+    E: GraphType,
+    F: GraphType,
+    G: GraphType,
+    H: GraphType,
+> InputTupleMap
+    for (
+        (Input<A>, Input<B>, Input<C>, Input<D>),
+        (Input<E>, Input<F>, Input<G>, Input<H>),
+    )
+{
+    type GraphValues = (
+        (GraphValue<A>, GraphValue<B>, GraphValue<C>, GraphValue<D>),
+        (GraphValue<E>, GraphValue<F>, GraphValue<G>, GraphValue<H>),
+    );
+
+    fn map<U, Func>(self, func: Func) -> GraphValue<U>
+    where
+        Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
+    {
+        let ((a, b, c, d), (e, f, g, h)) = self;
+        func((
+            (
+                GraphValue::from_op(a.op),
+                GraphValue::from_op(b.op),
+                GraphValue::from_op(c.op),
+                GraphValue::from_op(d.op),
+            ),
+            (
+                GraphValue::from_op(e.op),
+                GraphValue::from_op(f.op),
+                GraphValue::from_op(g.op),
+                GraphValue::from_op(h.op),
+            ),
+        ))
+    }
+}
