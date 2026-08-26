@@ -12,7 +12,20 @@ pub use op::{ConstantValue, GraphType, Op, OpKind, ScalarType};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ::tensorflow::{Session, SessionOptions, SessionRunArgs, Tensor};
+    use ::tensorflow::{Operation, Session, SessionOptions, SessionRunArgs, Tensor, TensorType};
+
+    fn run_graph<T: TensorType>(graph: &Graph, input_name: &str, input: Tensor<T>) -> Tensor<T> {
+        let x_op: Operation = graph.operation_by_name(input_name).unwrap().unwrap();
+        let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
+
+        let mut args = SessionRunArgs::new();
+        args.add_feed(&x_op, 0, &input);
+        let token = args.request_fetch(&output_op, 0);
+
+        let session = Session::new(&SessionOptions::new(), graph).unwrap();
+        session.run(&mut args).unwrap();
+        args.fetch(token).unwrap()
+    }
 
     #[test]
     fn map_lowers_to_executable_tensorflow_graph() {
@@ -22,17 +35,7 @@ mod tests {
         assert!(graph.operation_by_name("x").is_ok());
         assert!(graph.operation_by_name("output").is_ok());
 
-        let x_op = graph.operation_by_name("x").unwrap().unwrap();
-        let output_op = graph.operation_by_name("output").unwrap().unwrap();
-
-        let mut args = SessionRunArgs::new();
-        args.add_feed(&x_op, 0, &Tensor::from(3.0_f32));
-        let token = args.request_fetch(&output_op, 0);
-
-        let session = Session::new(&SessionOptions::new(), &graph).unwrap();
-        session.run(&mut args).unwrap();
-        let output: Tensor<f32> = args.fetch(token).unwrap();
-
+        let output = run_graph(&graph, "x", Tensor::from(3.0_f32));
         assert_eq!(output[0], 7.0);
     }
 
@@ -48,5 +51,8 @@ mod tests {
         assert!(graph.operation_by_name("x").is_ok());
         assert!(graph.operation_by_name("output").is_ok());
         assert_eq!(graph.operation_iter().count(), 7);
+
+        let output = run_graph(&graph, "x", Tensor::from(3.0_f32));
+        assert_eq!(output[0], 21.0);
     }
 }
