@@ -68,30 +68,14 @@ impl GraphValue<bool> {
     }
 }
 
-trait GraphValueTupleMapFn<Args> {
-    type Output;
-    fn call(self, args: Args) -> Self::Output;
-}
-
-impl<F, Args, U> GraphValueTupleMapFn<Args> for F
-where
-    F: FnOnce(Args) -> U,
-{
-    type Output = U;
-
-    fn call(self, args: Args) -> Self::Output {
-        self(args)
-    }
-}
-
 pub trait GraphValueTupleMap: Sized {
     type GraphValues<'a>
     where
         Self: 'a;
 
-    fn map<Func>(&self, f: Func) -> <Func as GraphValueTupleMapFn<Self::GraphValues<'_>>>::Output
+    fn map<U, Func>(&self, f: Func) -> U
     where
-        for<'a> Func: GraphValueTupleMapFn<Self::GraphValues<'a>>;
+        Func: FnOnce(Self::GraphValues<'_>) -> U;
 }
 
 macro_rules! impl_graph_value_tuple_map {
@@ -102,12 +86,12 @@ macro_rules! impl_graph_value_tuple_map {
                 where
                     Self: 'a;
 
-                fn map<Func>(&self, f: Func) -> <Func as GraphValueTupleMapFn<Self::GraphValues<'_>>>::Output
+                fn map<U, Func>(&self, f: Func) -> U
                 where
-                    for<'a> Func: GraphValueTupleMapFn<Self::GraphValues<'a>>,
+                    Func: FnOnce(Self::GraphValues<'_>) -> U,
                 {
                     let ($( $value, )+) = self;
-                    f.call(($( $value, )+))
+                    f(($( $value, )+))
                 }
             }
         )+
