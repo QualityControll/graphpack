@@ -1,10 +1,7 @@
 use std::marker::PhantomData;
 use std::rc::Rc;
 
-/// A value in a GraphPack computation graph.
-///
-/// `Input<T>` is a typed handle to a graph value. It does not contain the
-/// runtime data; it identifies a value produced by an [`Op`].
+/// A typed value in a GraphPack computation graph.
 #[derive(Clone)]
 pub struct Input<T> {
     op: Rc<Op>,
@@ -12,24 +9,26 @@ pub struct Input<T> {
 }
 
 /// A node in the GraphPack computation graph.
-///
-/// `Op` is intentionally small at this stage. It records the operation kind
-/// and its input dependencies while leaving serialization and execution for a
-/// later layer.
 #[derive(Clone, Debug)]
 pub struct Op {
     kind: OpKind,
     inputs: Vec<Rc<Op>>,
 }
 
-/// The kinds of graph nodes currently needed by the public graph model.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum OpKind {
     Input { name: String },
+    Map,
+}
+
+/// A typed graph value passed to a transformation closure.
+#[derive(Clone)]
+pub struct GraphValue<T> {
+    op: Rc<Op>,
+    _marker: PhantomData<T>,
 }
 
 impl<T> Input<T> {
-    /// Creates a named graph input.
     pub fn new(name: impl Into<String>) -> Self {
         Self {
             op: Rc::new(Op {
@@ -40,65 +39,99 @@ impl<T> Input<T> {
         }
     }
 
-    /// Returns the operation represented by this value.
+    /// Experimental `map` design: the closure receives a graph value rather
+    /// than runtime data, allowing normal Rust expressions to build graphs.
+    pub fn map<U, F>(self, f: F) -> Input<U>
+    where
+        F: FnOnce(GraphValue<T>) -> GraphValue<U>,
+    {
+        let value = GraphValue {
+            op: self.op.clone(),
+            _marker: PhantomData,
+        };
+        let result = f(value);
+        Input {
+            op: Rc::new(Op {
+                kind: OpKind::Map,
+                inputs: vec![self.op, result.op],
+            }),
+            _marker: PhantomData,
+        }
+    }
+
     pub(crate) fn op(&self) -> &Rc<Op> {
         &self.op
     }
 
-    /// Applies a transformation to each element.
-    pub fn map<U, F>(self, _f: F) -> Input<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        todo!("map graph construction is not implemented yet")
-    }
-
-    /// Retains elements matching a predicate.
     pub fn filter<F>(self, _predicate: F) -> Input<T>
     where
-        F: FnOnce(&T) -> bool,
+        F: FnOnce(&GraphValue<T>) -> GraphValue<bool>,
     {
         todo!("filter graph construction is not implemented yet")
     }
 
-    /// Folds the input into a single value.
     pub fn fold<U, F>(self, _init: U, _f: F) -> U
     where
-        F: FnOnce(U, T) -> U,
+        F: FnOnce(U, GraphValue<T>) -> U,
     {
         todo!("fold graph construction is not implemented yet")
     }
 
-    /// Reduces the input into a single value.
     pub fn reduce<F>(self, _f: F) -> T
     where
-        F: FnOnce(T, T) -> T,
+        F: FnOnce(GraphValue<T>, GraphValue<T>) -> GraphValue<T>,
     {
         todo!("reduce graph construction is not implemented yet")
     }
 
-    /// Produces the intermediate accumulated values.
     pub fn scan<U, F>(self, _init: U, _f: F) -> Input<U>
     where
-        F: FnOnce(U, T) -> U,
+        F: FnOnce(U, GraphValue<T>) -> U,
     {
         todo!("scan graph construction is not implemented yet")
     }
 
-    /// Materializes the sequence as a graph value.
     pub fn collect(self) -> Self {
         self
     }
 }
 
+impl<T> GraphValue<T> {
+    pub(crate) fn from_op(op: Rc<Op>) -> Self {
+        Self {
+            op,
+            _marker: PhantomData,
+        }
+    }
+
+    pub(crate) fn op(&self) -> &Rc<Op> {
+        &self.op
+    }
+}
+
 impl Op {
-    /// Returns the kind of this graph operation.
     pub fn kind(&self) -> &OpKind {
         &self.kind
     }
 
-    /// Returns the operation dependencies.
     pub fn inputs(&self) -> &[Rc<Op>] {
         &self.inputs
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn map_accepts_graph_value_closure() {
+        let input = Input::<f32>::new("x");
+        let input_op = input.op().clone();
+        let mapped = input.map(GraphValue::from_op);
+
+        assert_eq!(mapped.op().kind(), &OpKind::Map);
+        assert_eq!(mapped.op().inputs().len(), 2);
+        assert!(Rc::ptr_eq(&mapped.op().inputs()[0], &input_op));
+        assert!(Rc::ptr_eq(&mapped.op().inputs()[1], &input_op));
     }
 }
