@@ -94,7 +94,8 @@ macro_rules! impl_input_tuple_map {
                 where
                     F: FnOnce(Self::GraphValues) -> GraphValue<U>,
                 {
-                    f(($(GraphValue::from_op(self.$value.op),)+))
+                    let ($( $value, )+) = self;
+                    f(($(GraphValue::from_op($value.op),)+))
                 }
             }
         )+
@@ -102,25 +103,11 @@ macro_rules! impl_input_tuple_map {
 }
 
 impl_input_tuple_map!(
-    (A, a),
-    (A, a),
-    (A, a),
-    (A, a),
-    (A, a),
-    (A, a),
-    (A, a),
+    (A, a, B, b),
+    (A, a, B, b, C, c),
+    (A, a, B, b, C, c, D, d),
+    (A, a, B, b, C, c, D, d, E, e),
+    (A, a, B, b, C, c, D, d, E, e, F, f),
+    (A, a, B, b, C, c, D, d, E, e, F, f, G, g),
+    (A, a, B, b, C, c, D, d, E, e, F, f, G, g, H, h),
 );
-
-impl<A: GraphType, B: GraphType> InputTupleMap for (Input<A>, Input<B>) {
-    type GraphValues = (GraphValue<A>, GraphValue<B>);
-
-    fn map<U, F>(self, f: F) -> GraphValue<U>
-    where
-        F: FnOnce(Self::GraphValues) -> GraphValue<U>,
-    {
-        f((
-            GraphValue::from_op(self.0.op),
-            GraphValue::from_op(self.1.op),
-        ))
-    }
-}
