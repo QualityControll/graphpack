@@ -1,7 +1,7 @@
 use std::{env, fs, path::PathBuf, slice};
 
 use protobuf::Message;
-use tensorflow_proto::tensorflow::core::framework::op_def::OpList;
+use tensorflow_proto::tensorflow::OpList;
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -37,9 +37,7 @@ fn main() {
 
     let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is not set"))
         .join("tensorflow_ops.rs");
-    let mut generated = String::from(
-        "use tensorflow_proto::tensorflow::core::framework::op_def::OpDef;\n\n"
-    );
+    let mut generated = String::from("use tensorflow_proto::tensorflow::OpDef;\n\n");
     generated.push_str("pub fn tensorflow_ops() -> Vec<OpDef> {\n    vec![\n");
 
     for op in &op_list.op {
