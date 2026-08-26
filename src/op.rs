@@ -1,23 +1,131 @@
-use std::rc::Rc;
 use num_complex::Complex;
+use std::rc::Rc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ScalarType { F32, F64, I32, I64, Bool, Complex64, Complex128, String }
-pub trait GraphType { fn scalar_type() -> ScalarType; }
-impl GraphType for f32 { fn scalar_type() -> ScalarType { ScalarType::F32 } }
-impl GraphType for f64 { fn scalar_type() -> ScalarType { ScalarType::F64 } }
-impl GraphType for i32 { fn scalar_type() -> ScalarType { ScalarType::I32 } }
-impl GraphType for i64 { fn scalar_type() -> ScalarType { ScalarType::I64 } }
-impl GraphType for usize { fn scalar_type() -> ScalarType { ScalarType::I64 } }
-impl GraphType for bool { fn scalar_type() -> ScalarType { ScalarType::Bool } }
-impl GraphType for Complex<f32> { fn scalar_type() -> ScalarType { ScalarType::Complex64 } }
-impl GraphType for Complex<f64> { fn scalar_type() -> ScalarType { ScalarType::Complex128 } }
-impl GraphType for String { fn scalar_type() -> ScalarType { ScalarType::String } }
+pub enum ScalarType {
+    F32,
+    F64,
+    I32,
+    I64,
+    Bool,
+    Complex64,
+    Complex128,
+    String,
+}
+pub trait GraphType {
+    fn scalar_type() -> ScalarType;
+}
+impl GraphType for f32 {
+    fn scalar_type() -> ScalarType {
+        ScalarType::F32
+    }
+}
+impl GraphType for f64 {
+    fn scalar_type() -> ScalarType {
+        ScalarType::F64
+    }
+}
+impl GraphType for i32 {
+    fn scalar_type() -> ScalarType {
+        ScalarType::I32
+    }
+}
+impl GraphType for i64 {
+    fn scalar_type() -> ScalarType {
+        ScalarType::I64
+    }
+}
+impl GraphType for usize {
+    fn scalar_type() -> ScalarType {
+        ScalarType::I64
+    }
+}
+impl GraphType for bool {
+    fn scalar_type() -> ScalarType {
+        ScalarType::Bool
+    }
+}
+impl GraphType for Complex<f32> {
+    fn scalar_type() -> ScalarType {
+        ScalarType::Complex64
+    }
+}
+impl GraphType for Complex<f64> {
+    fn scalar_type() -> ScalarType {
+        ScalarType::Complex128
+    }
+}
+impl GraphType for String {
+    fn scalar_type() -> ScalarType {
+        ScalarType::String
+    }
+}
 
-#[derive(Clone, Debug)] pub struct Op { kind: OpKind, inputs: Vec<Rc<Op>> }
+#[derive(Clone, Debug)]
+pub struct Op {
+    kind: OpKind,
+    inputs: Vec<Rc<Op>>,
+}
 #[derive(Clone, Debug, PartialEq)]
-pub enum OpKind { Input { name: String, dtype: ScalarType }, Constant { value: ConstantValue }, Map, Filter, Add, Sub, Mul, Div, Neg, BitAnd, BitOr, BitXor, BitwiseNot, Shl, Shr, Equal, NotEqual, Less, LessEqual, Greater, GreaterEqual, LogicalAnd, LogicalOr, LogicalNot }
+pub enum OpKind {
+    Input { name: String, dtype: ScalarType },
+    Constant { value: ConstantValue },
+    Map,
+    Filter,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Neg,
+    BitAnd,
+    BitOr,
+    BitXor,
+    BitwiseNot,
+    Shl,
+    Shr,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    LogicalAnd,
+    LogicalOr,
+    LogicalNot,
+}
 #[derive(Clone, Debug, PartialEq)]
-pub enum ConstantValue { F32(f32), F64(f64), I32(i32), I64(i64), Bool(bool), Complex64(Complex<f32>), Complex128(Complex<f64>), String(String) }
-impl ConstantValue { pub fn scalar_type(&self) -> ScalarType { match self { Self::F32(_) => ScalarType::F32, Self::F64(_) => ScalarType::F64, Self::I32(_) => ScalarType::I32, Self::I64(_) => ScalarType::I64, Self::Bool(_) => ScalarType::Bool, Self::Complex64(_) => ScalarType::Complex64, Self::Complex128(_) => ScalarType::Complex128, Self::String(_) => ScalarType::String } } }
-impl Op { pub(crate) fn new(kind: OpKind, inputs: Vec<Rc<Op>>) -> Self { Self { kind, inputs } } pub fn kind(&self) -> &OpKind { &self.kind } pub fn inputs(&self) -> &[Rc<Op>] { &self.inputs } }
+pub enum ConstantValue {
+    F32(f32),
+    F64(f64),
+    I32(i32),
+    I64(i64),
+    Bool(bool),
+    Complex64(Complex<f32>),
+    Complex128(Complex<f64>),
+    String(String),
+}
+impl ConstantValue {
+    pub fn scalar_type(&self) -> ScalarType {
+        match self {
+            Self::F32(_) => ScalarType::F32,
+            Self::F64(_) => ScalarType::F64,
+            Self::I32(_) => ScalarType::I32,
+            Self::I64(_) => ScalarType::I64,
+            Self::Bool(_) => ScalarType::Bool,
+            Self::Complex64(_) => ScalarType::Complex64,
+            Self::Complex128(_) => ScalarType::Complex128,
+            Self::String(_) => ScalarType::String,
+        }
+    }
+}
+impl Op {
+    pub(crate) fn new(kind: OpKind, inputs: Vec<Rc<Op>>) -> Self {
+        Self { kind, inputs }
+    }
+    pub fn kind(&self) -> &OpKind {
+        &self.kind
+    }
+    pub fn inputs(&self) -> &[Rc<Op>] {
+        &self.inputs
+    }
+}
