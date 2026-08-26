@@ -52,6 +52,24 @@ mod tests {
         args.fetch(token).unwrap()
     }
 
+    fn run_graph_with_integer_inputs(
+        graph: &TensorFlowGraph,
+        inputs: Vec<(&str, Tensor<i32>)>,
+    ) -> Tensor<i32> {
+        let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
+        let mut args = SessionRunArgs::new();
+
+        for (name, input) in inputs {
+            let input_op: Operation = graph.operation_by_name(name).unwrap().unwrap();
+            args.add_feed(&input_op, 0, &input);
+        }
+
+        let token = args.request_fetch(&output_op, 0);
+        let session = Session::new(&SessionOptions::new(), graph).unwrap();
+        session.run(&mut args).unwrap();
+        args.fetch(token).unwrap()
+    }
+
     #[test]
     fn map_lowers_to_executable_tensorflow_graph() {
         let x = Input::<f32>::new("x");
@@ -100,6 +118,52 @@ mod tests {
             Tensor::from(5_i32),
         );
         assert_eq!(output[0], 19);
+    }
+
+    #[test]
+    fn three_inputs_can_be_mapped_together() {
+        let x = Input::<i32>::new("x");
+        let y = Input::<i32>::new("y");
+        let z = Input::<i32>::new("z");
+        let graph = (x, y, z).map(|(x, y, z)| x + y * z).collect();
+        let output = run_graph_with_integer_inputs(
+            &graph,
+            vec![
+                ("x", Tensor::from(2_i32)),
+                ("y", Tensor::from(3_i32)),
+                ("z", Tensor::from(4_i32)),
+            ],
+        );
+        assert_eq!(output[0], 14);
+    }
+
+    #[test]
+    fn eight_inputs_can_be_mapped_together() {
+        let a = Input::<i32>::new("a");
+        let b = Input::<i32>::new("b");
+        let c = Input::<i32>::new("c");
+        let d = Input::<i32>::new("d");
+        let e = Input::<i32>::new("e");
+        let f = Input::<i32>::new("f");
+        let g = Input::<i32>::new("g");
+        let h = Input::<i32>::new("h");
+        let graph = (a, b, c, d, e, f, g, h)
+            .map(|(a, b, c, d, e, f, g, h)| a + b + c + d + e + f + g + h)
+            .collect();
+        let output = run_graph_with_integer_inputs(
+            &graph,
+            vec![
+                ("a", Tensor::from(1_i32)),
+                ("b", Tensor::from(2_i32)),
+                ("c", Tensor::from(3_i32)),
+                ("d", Tensor::from(4_i32)),
+                ("e", Tensor::from(5_i32)),
+                ("f", Tensor::from(6_i32)),
+                ("g", Tensor::from(7_i32)),
+                ("h", Tensor::from(8_i32)),
+            ],
+        );
+        assert_eq!(output[0], 36);
     }
 
     #[test]
