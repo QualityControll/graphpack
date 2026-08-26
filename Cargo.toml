@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 
+tensorflow-proto = "0.3.0"
+
 [build-dependencies]
-prost = "0.13"
 prost07 = { package = "prost", version = "0.7" }
 tensorflow-proto = "0.3.0"
 tensorflow-sys = "0.24"
