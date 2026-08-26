@@ -1,4 +1,4 @@
-use proc_macro2::{Ident, TokenStream};
+use proc_macro2::TokenStream;
 use quote::quote;
 use std::collections::HashMap;
 use syn::{Expr, ExprBinary, ExprLit, ExprPath, ExprUnary, Lit, Stmt};
@@ -28,12 +28,20 @@ impl LoweringContext {
                     .cloned()
                     .ok_or_else(|| syn::Error::new_spanned(expr, "unknown graph value"))
             }
-            Expr::Lit(ExprLit {
-                lit: Lit::Float(value),
-                ..
-            }) => {
-                let ty = self.scalar_type.tensor_type();
-                let data_type = self.scalar_type.data_type();
+            Expr::Lit(ExprLit { lit, .. }) => {
+                let (value, ty, data_type) = match lit {
+                    Lit::Float(value) => {
+                        let ty = self.scalar_type.tensor_type();
+                        let data_type = self.scalar_type.data_type();
+                        (quote!(#value as #ty), ty, data_type)
+                    }
+                    Lit::Int(value) => {
+                        let ty = self.scalar_type.tensor_type();
+                        let data_type = self.scalar_type.data_type();
+                        (quote!(#value as #ty), ty, data_type)
+                    }
+                    _ => return Err(syn::Error::new_spanned(lit, "unsupported graph literal")),
+                };
                 Ok(quote!({
                     let mut constant = graph
                         .new_operation("Const", "constant")
@@ -42,14 +50,15 @@ impl LoweringContext {
                         .set_attr_type("dtype", #data_type)
                         .expect("failed to set constant dtype");
                     let value = ::tensorflow::Tensor::<#ty>::new(&[])
-                        .with_values(&[#value as #ty])
+                        .with_values(&[#value])
                         .expect("failed to create constant tensor");
                     constant
                         .set_attr_tensor("value", value)
                         .expect("failed to set constant value");
-                    constant
+                    let operation = constant
                         .finish()
-                        .expect("failed to finish constant operation")
+                        .expect("failed to finish constant operation");
+                    ::tensorflow::Output::from(operation)
                 }))
             }
             Expr::Binary(ExprBinary { left, op, right, .. }) => {
@@ -58,14 +67,15 @@ impl LoweringContext {
                 let left = self.lower_expr(left)?;
                 let right = self.lower_expr(right)?;
                 Ok(quote!({
-                    let left_output = #left;
-                    let right_output = #right;
+                    let left_output: ::tensorflow::Output = #left;
+                    let right_output: ::tensorflow::Output = #right;
                     let mut operation = graph
                         .new_operation(#op_name, "operation")
                         .expect("failed to create operation");
                     operation.add_input(left_output);
                     operation.add_input(right_output);
-                    operation.finish().expect("failed to finish operation")
+                    let operation = operation.finish().expect("failed to finish operation");
+                    ::tensorflow::Output::from(operation)
                 }))
             }
             Expr::Unary(ExprUnary { op, expr, .. }) => {
@@ -73,18 +83,16 @@ impl LoweringContext {
                     .ok_or_else(|| syn::Error::new_spanned(op, "unsupported unary operator"))?;
                 let input = self.lower_expr(expr)?;
                 Ok(quote!({
-                    let input_output = #input;
+                    let input_output: ::tensorflow::Output = #input;
                     let mut operation = graph
                         .new_operation(#op_name, "operation")
                         .expect("failed to create operation");
                     operation.add_input(input_output);
-                    operation.finish().expect("failed to finish operation")
+                    let operation = operation.finish().expect("failed to finish operation");
+                    ::tensorflow::Output::from(operation)
                 }))
             }
-            _ => Err(syn::Error::new_spanned(
-                expr,
-                "unsupported graph expression",
-            )),
+            _ => Err(syn::Error::new_spanned(expr, "unsupported graph expression")),
         }
     }
 
@@ -96,39 +104,21 @@ impl LoweringContext {
                 Stmt::Local(local) => {
                     let ident = match &local.pat {
                         syn::Pat::Ident(pat) => pat.ident.clone(),
-                        _ => {
-                            return Err(syn::Error::new_spanned(
-                                &local.pat,
-                                "graphpack! let bindings must be identifiers",
-                            ))
-                        }
+                        _ => return Err(syn::Error::new_spanned(&local.pat, "graphpack! let bindings must be identifiers")),
                     };
-                    let init = local.init.as_ref().ok_or_else(|| {
-                        syn::Error::new_spanned(local, "graphpack! let bindings require an initializer")
-                    })?;
+                    let init = local.init.as_ref().ok_or_else(|| syn::Error::new_spanned(local, "graphpack! let bindings require an initializer"))?;
                     let value = self.lower_expr(&init.expr)?;
-                    self.values.insert(ident.to_string(), value.clone());
-                    generated.extend(quote!(let #ident = #value;));
+                    self.values.insert(ident.to_string(), quote!(#ident));
+                    generated.extend(quote! {
+                        let #ident: ::tensorflow::Output = #value;
+                    });
                 }
                 Stmt::Expr(expr, _) => final_expr = Some(self.lower_expr(expr)?),
-                Stmt::Item(item) => {
-                    return Err(syn::Error::new_spanned(
-                        item,
-                        "items are not supported in graphpack! closures",
-                    ))
-                }
-                Stmt::Macro(mac) => {
-                    return Err(syn::Error::new_spanned(
-                        mac,
-                        "macros are not supported in graphpack! closures",
-                    ))
-                }
+                Stmt::Item(item) => return Err(syn::Error::new_spanned(item, "items are not supported in graphpack! closures")),
+                Stmt::Macro(mac) => return Err(syn::Error::new_spanned(mac, "macros are not supported in graphpack! closures")),
             }
         }
+        let final_expr = final_expr.ok_or_else(|| syn::Error::new(proc_macro2::Span::call_site(), "graphpack! closure must return a graph value"))?;
         Ok(quote!(#generated #final_expr))
     }
-}
-
-pub fn input_ident(name: &str) -> Ident {
-    syn::Ident::new(name, proc_macro2::Span::call_site())
 }
