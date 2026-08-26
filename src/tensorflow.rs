@@ -27,6 +27,7 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
                     OpKind::Add => "Add", OpKind::Sub => "Sub", OpKind::Mul => "Mul", OpKind::Div => "Div", OpKind::Neg => "Neg",
                     OpKind::BitAnd => "BitwiseAnd", OpKind::BitOr => "BitwiseOr", OpKind::BitXor => "BitwiseXor", OpKind::BitwiseNot => "Invert",
                     OpKind::Shl => "LeftShift", OpKind::Shr => "RightShift",
+                    OpKind::Equal => "Equal", OpKind::NotEqual => "NotEqual", OpKind::Less => "Less", OpKind::LessEqual => "LessEqual", OpKind::Greater => "Greater", OpKind::GreaterEqual => "GreaterEqual",
                     OpKind::Map => return Err("Map nodes should be eliminated before TensorFlow lowering".into()),
                     OpKind::Input { .. } | OpKind::Constant { .. } => unreachable!(),
                 };
@@ -42,17 +43,12 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
     }
     Ok(tensorflow_graph)
 }
-
 fn data_type(dtype: ScalarType) -> DataType { match dtype { ScalarType::F32 => DataType::Float, ScalarType::F64 => DataType::Double, ScalarType::I32 => DataType::Int32, ScalarType::I64 => DataType::Int64, ScalarType::Bool => DataType::Bool } }
-
-fn set_constant(desc: &mut ::tensorflow::OperationDescription<'_>, value: &ConstantValue) -> Result<(), String> {
-    match value {
-        ConstantValue::F32(v) => { desc.set_attr_type("dtype", DataType::Float).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<f32>::from(*v)).map_err(|e| e.to_string())?; }
-        ConstantValue::F64(v) => { desc.set_attr_type("dtype", DataType::Double).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<f64>::from(*v)).map_err(|e| e.to_string())?; }
-        ConstantValue::I32(v) => { desc.set_attr_type("dtype", DataType::Int32).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<i32>::from(*v)).map_err(|e| e.to_string())?; }
-        ConstantValue::I64(v) => { desc.set_attr_type("dtype", DataType::Int64).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<i64>::from(*v)).map_err(|e| e.to_string())?; }
-        ConstantValue::Bool(v) => { desc.set_attr_type("dtype", DataType::Bool).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<bool>::from(*v)).map_err(|e| e.to_string())?; }
-    }
-    Ok(())
-}
+fn set_constant(desc: &mut ::tensorflow::OperationDescription<'_>, value: &ConstantValue) -> Result<(), String> { match value {
+    ConstantValue::F32(v) => { desc.set_attr_type("dtype", DataType::Float).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<f32>::from(*v)).map_err(|e| e.to_string())?; }
+    ConstantValue::F64(v) => { desc.set_attr_type("dtype", DataType::Double).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<f64>::from(*v)).map_err(|e| e.to_string())?; }
+    ConstantValue::I32(v) => { desc.set_attr_type("dtype", DataType::Int32).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<i32>::from(*v)).map_err(|e| e.to_string())?; }
+    ConstantValue::I64(v) => { desc.set_attr_type("dtype", DataType::Int64).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<i64>::from(*v)).map_err(|e| e.to_string())?; }
+    ConstantValue::Bool(v) => { desc.set_attr_type("dtype", DataType::Bool).map_err(|e| e.to_string())?; desc.set_attr_tensor("value", Tensor::<bool>::from(*v)).map_err(|e| e.to_string())?; }
+} Ok(()) }
 fn node_name(op_ptr: *const Op, output_ptr: *const Op) -> String { if op_ptr == output_ptr { "output".to_string() } else { format!("graphpack_{:p}", op_ptr) } }
