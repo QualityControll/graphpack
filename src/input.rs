@@ -77,22 +77,19 @@ impl<T: GraphType> Input<T> {
 }
 
 pub trait InputTupleMap {
-    type Output;
-
-    fn map<F>(self, f: F) -> Self::Output
-    where
-        F: FnOnce(Self::GraphValues) -> Self::Output;
-
     type GraphValues;
+
+    fn map<U, F>(self, f: F) -> GraphValue<U>
+    where
+        F: FnOnce(Self::GraphValues) -> GraphValue<U>;
 }
 
 impl<A: GraphType, B: GraphType> InputTupleMap for (Input<A>, Input<B>) {
-    type Output = GraphValue<()>;
     type GraphValues = (GraphValue<A>, GraphValue<B>);
 
-    fn map<F>(self, f: F) -> Self::Output
+    fn map<U, F>(self, f: F) -> GraphValue<U>
     where
-        F: FnOnce(Self::GraphValues) -> Self::Output,
+        F: FnOnce(Self::GraphValues) -> GraphValue<U>,
     {
         f((
             GraphValue::from_op(self.0.op),
