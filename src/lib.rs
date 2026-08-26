@@ -5,7 +5,7 @@ mod op;
 mod tensorflow;
 
 pub use graph::Graph;
-pub use graph_value::GraphValue;
+pub use graph_value::{GraphValue, GraphValueTupleMap};
 pub use input::{Input, InputTupleMap};
 pub use op::{ConstantValue, GraphType, Op, OpKind, ScalarType};
 
@@ -178,6 +178,36 @@ mod tests {
             vec![("x", Tensor::from(2_i32)), ("y", Tensor::from(3_i32))],
         );
         assert_eq!(output[0], 19);
+    }
+
+    #[test]
+    fn tuple_valued_map_results_can_be_destructured() {
+        let x = Input::<i32>::new("x");
+        let tuple = x.map(|v| (v.clone() + 1, v * 2));
+        let graph = tuple.map(|(a, b)| a * b).collect();
+        let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(4_i32))]);
+        assert_eq!(output[0], 40);
+    }
+
+    #[test]
+    fn tuple_valued_map_results_can_be_chained() {
+        let x = Input::<i32>::new("x");
+        let tuple = x.map(|v| (v.clone() + 1, v * 2));
+        let graph = tuple
+            .map(|(a, b)| (a + b, a * b))
+            .map(|(sum, product)| sum + product)
+            .collect();
+        let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(4_i32))]);
+        assert_eq!(output[0], 50);
+    }
+
+    #[test]
+    fn tuple_valued_map_results_support_three_values() {
+        let x = Input::<i32>::new("x");
+        let tuple = x.map(|v| (v.clone(), v.clone() + 1, v + 2));
+        let graph = tuple.map(|(a, b, c)| a + b + c).collect();
+        let output: Tensor<i32> = run_graph(&graph, vec![("x", Tensor::from(4_i32))]);
+        assert_eq!(output[0], 15);
     }
 
     #[test]
