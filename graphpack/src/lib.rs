@@ -16,6 +16,9 @@ fn run_graph<T: tensorflow::TensorType>(
     let options = tensorflow::ImportGraphDefOptions::new();
     graph.import_graph_def(graph_def, &options)?;
 
+    let session_options = tensorflow::SessionOptions::new();
+    let session = tensorflow::Session::new(&session_options, &graph)?;
+
     let tensors: Vec<tensorflow::Tensor<T>> = inputs
         .iter()
         .map(|(_, values)| {
@@ -120,12 +123,7 @@ mod tests {
             if x > 0.0 { x * 2.0 } else { x - 2.0 }
         });
 
-        let output = run_graph(
-            &graph_def,
-            &[("x", &[1.0f32, -2.0, 3.0])],
-            "output",
-        )
-        .unwrap();
+        let output = run_graph(&graph_def, &[("x", &[1.0f32, -2.0, 3.0])], "output").unwrap();
         assert_eq!(output.as_ref(), &[2.0f32, -4.0, 6.0]);
     }
 
@@ -167,17 +165,11 @@ mod tests {
         graph.import_graph_def(&graph_def, &options).unwrap();
 
         assert_eq!(
-            graph
-                .operation_by_name_required("x")
-                .unwrap()
-                .output_type(0),
+            graph.operation_by_name_required("x").unwrap().output_type(0),
             tensorflow::DataType::Complex64
         );
         assert_eq!(
-            graph
-                .operation_by_name_required("y")
-                .unwrap()
-                .output_type(0),
+            graph.operation_by_name_required("y").unwrap().output_type(0),
             tensorflow::DataType::Complex64
         );
         assert_eq!(
