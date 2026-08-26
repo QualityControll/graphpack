@@ -23,7 +23,7 @@ impl ScalarType {
                 match arguments.args.first().unwrap() {
                     GenericArgument::Type(Type::Path(path)) if path.path.is_ident("f32") => Ok(Self::F32),
                     GenericArgument::Type(Type::Path(path)) if path.path.is_ident("i32") => Ok(Self::I32),
-                    GenericArgument::Type(Type::Path(path)) if path.path.is_ident("Complex") => {
+                    GenericArgument::Type(Type::Path(path)) if path.path.segments.last().is_some_and(|s| s.ident == "Complex") => {
                         let complex = path.path.segments.last().unwrap();
                         match &complex.arguments {
                             PathArguments::AngleBracketed(arguments) if arguments.args.len() == 1 => {
