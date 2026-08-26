@@ -55,17 +55,14 @@ mod tests {
         let graph = x.map(|v| v.ge_scalar(10)).collect();
         let output: Tensor<bool> = run_graph(&graph, "x", Tensor::from(10_i32));
         assert!(output[0]);
-
         let x = Input::<i32>::new("x");
         let graph = x.map(|v| v.le_scalar(10)).collect();
         let output: Tensor<bool> = run_graph(&graph, "x", Tensor::from(10_i32));
         assert!(output[0]);
-
         let x = Input::<i32>::new("x");
         let graph = x.map(|v| v.lt_scalar(10)).collect();
         let output: Tensor<bool> = run_graph(&graph, "x", Tensor::from(9_i32));
         assert!(output[0]);
-
         let x = Input::<i32>::new("x");
         let graph = x.map(|v| v.eq_scalar(10)).collect();
         let output: Tensor<bool> = run_graph(&graph, "x", Tensor::from(10_i32));
@@ -94,5 +91,20 @@ mod tests {
         let graph = x.map(|v| (v << 2) >> 1).collect();
         let output: Tensor<i32> = run_graph(&graph, "x", Tensor::from(3_i32));
         assert_eq!(output[0], 6);
+    }
+
+    #[test]
+    fn filter_works_with_map() {
+        let x = Input::<i32>::new("x");
+        let graph = x.filter(|v| v.gt_scalar(10)).map(|v| v * 2).collect();
+
+        let mut input = Tensor::new(&[4]);
+        input[0] = 5;
+        input[1] = 12;
+        input[2] = 20;
+        input[3] = 3;
+
+        let output: Tensor<i32> = run_graph(&graph, "x", input);
+        assert_eq!(output.to_vec(), vec![24, 40]);
     }
 }
