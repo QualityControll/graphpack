@@ -8,15 +8,25 @@ pub struct Op {
 }
 
 /// The kind of computation represented by an operation node.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum OpKind {
     Input { name: String },
+    Constant { value: ConstantValue },
     Map,
     Add,
     Sub,
     Mul,
     Div,
     Neg,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ConstantValue {
+    F32(f32),
+    F64(f64),
+    I32(i32),
+    I64(i64),
+    Bool(bool),
 }
 
 impl Op {
