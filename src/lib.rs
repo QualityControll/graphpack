@@ -12,9 +12,9 @@ pub use op::{ConstantValue, GraphType, Op, OpKind, ScalarType};
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ::tensorflow::{Operation, Session, SessionOptions, SessionRunArgs, Tensor, TensorType};
+    use ::tensorflow::{Graph as TensorFlowGraph, Operation, Session, SessionOptions, SessionRunArgs, Tensor, TensorType};
 
-    fn run_graph<T: TensorType>(graph: &Graph, input_name: &str, input: Tensor<T>) -> Tensor<T> {
+    fn run_graph<T: TensorType>(graph: &TensorFlowGraph, input_name: &str, input: Tensor<T>) -> Tensor<T> {
         let x_op: Operation = graph.operation_by_name(input_name).unwrap().unwrap();
         let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
 
