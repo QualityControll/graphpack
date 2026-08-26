@@ -8,7 +8,7 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
 
     if closure.inputs.is_empty() && matches!(closure.output, ReturnType::Default) {
         TokenStream::from(quote! {
-            ::graphpack::GraphDef::new()
+            ::tensorflow::GraphDef::new()
         })
     } else {
         syn::Error::new_spanned(
