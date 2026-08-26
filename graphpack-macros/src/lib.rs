@@ -31,7 +31,7 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
     };
 
     let mut context = lowering::LoweringContext::new(scalar_type);
-    context.values.insert(input_name.to_string(), quote!(input_operation));
+    context.values.insert(input_name.to_string(), quote!(::tensorflow::Output::from(input_operation)));
     let body = match &*closure.body {
         syn::Expr::Block(block) => match context.lower_statements(&block.block.stmts) {
             Ok(body) => body,
@@ -55,7 +55,7 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
                 .expect("failed to set input data type");
             let input_operation = input_operation.finish()
                 .expect("failed to finish input operation");
-            let output = { #body };
+            let output: ::tensorflow::Output = { #body };
             let mut identity = graph.new_operation("Identity", "output")
                 .expect("failed to create output operation");
             identity.add_input(output);
