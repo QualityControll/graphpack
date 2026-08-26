@@ -8,7 +8,7 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
 
     if closure.inputs.is_empty() && matches!(closure.output, ReturnType::Default) {
         TokenStream::from(quote! {
-            ::tensorflow::GraphDef::new()
+            ::tensorflow::Graph::new().graph_def().expect("failed to serialize GraphDef")
         })
     } else {
         syn::Error::new_spanned(
