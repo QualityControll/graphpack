@@ -74,6 +74,38 @@ mod tests {
     }
 
     #[test]
+    fn graphpack_multiple_f32_inputs_runs() {
+        let graph_def = graphpack!(|x: Input<f32>, y: Input<f32>| {
+            let sum = x + y;
+            sum * 2.0
+        });
+
+        let output = run_graph(
+            &graph_def,
+            &[("x", &[1.0, 2.0, 3.0]), ("y", &[4.0, 5.0, 6.0])],
+            "output",
+        )
+        .unwrap();
+        assert_eq!(output.as_ref(), &[10.0, 14.0, 18.0]);
+    }
+
+    #[test]
+    fn graphpack_multiple_i32_inputs_runs() {
+        let graph_def = graphpack!(|x: Input<i32>, y: Input<i32>| {
+            let difference = x - y;
+            difference * 2
+        });
+
+        let output = run_graph_i32(
+            &graph_def,
+            &[("x", &[10, 20, 30]), ("y", &[1, 2, 3])],
+            "output",
+        )
+        .unwrap();
+        assert_eq!(output.as_ref(), &[18, 36, 54]);
+    }
+
+    #[test]
     fn graphpack_bitwise_runs() {
         let graph_def = graphpack!(|x: Input<i32>| {
             let a = x & 0xff;
