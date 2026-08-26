@@ -4,15 +4,18 @@ use syn::{parse_macro_input, ExprClosure, Pat};
 
 mod lowering;
 mod ops;
-mod types;
+mod scalar_types;
 
 #[proc_macro]
 pub fn graphpack(input: TokenStream) -> TokenStream {
     let closure = parse_macro_input!(input as ExprClosure);
     if closure.inputs.is_empty() {
-        return syn::Error::new_spanned(closure, "graphpack! closures must have at least one Input<T> argument")
-            .to_compile_error()
-            .into();
+        return syn::Error::new_spanned(
+            closure,
+            "graphpack! closures must have at least one Input<T> argument",
+        )
+        .to_compile_error()
+        .into();
     }
 
     let mut inputs = Vec::new();
@@ -21,19 +24,29 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
             Pat::Type(pat_type) => {
                 let name = match &*pat_type.pat {
                     Pat::Ident(pat_ident) => pat_ident.ident.clone(),
-                    _ => return syn::Error::new_spanned(&pat_type.pat, "graphpack! inputs must be identifiers")
+                    _ => {
+                        return syn::Error::new_spanned(
+                            &pat_type.pat,
+                            "graphpack! inputs must be identifiers",
+                        )
                         .to_compile_error()
-                        .into(),
+                        .into()
+                    }
                 };
-                let scalar_type = match types::ScalarType::from_input_type(&pat_type.ty) {
+                let scalar_type = match scalar_types::ScalarType::from_input_type(&pat_type.ty) {
                     Ok(value) => value,
                     Err(error) => return error.to_compile_error().into(),
                 };
                 (name, scalar_type)
             }
-            _ => return syn::Error::new_spanned(input, "graphpack! inputs must have the form |x: Input<T>| ...")
+            _ => {
+                return syn::Error::new_spanned(
+                    input,
+                    "graphpack! inputs must have the form |x: Input<T>| ...",
+                )
                 .to_compile_error()
-                .into(),
+                .into()
+            }
         };
         inputs.push((name, scalar_type));
     }
@@ -47,7 +60,7 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
         let data_type = input_type.data_type();
         context.values.insert(
             input_name.to_string(),
-            quote!(::tensorflow::Output::from(#input_name)),
+            quote!(::tensorflow::Output::from(#input_name.clone())),
         );
         input_operations.push(quote! {
             let mut #input_name = graph

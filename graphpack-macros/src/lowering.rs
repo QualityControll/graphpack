@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use syn::{Expr, ExprBinary, ExprLit, ExprPath, ExprUnary, Lit, Stmt};
 
 use crate::ops;
-use crate::types::ScalarType;
+use crate::scalar_types::ScalarType;
 
 pub struct LoweringContext {
     pub values: HashMap<String, TokenStream>,
