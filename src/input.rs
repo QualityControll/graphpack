@@ -1,47 +1,78 @@
-use crate::{GraphType, GraphValue};
+use std::marker::PhantomData;
 use std::rc::Rc;
 
+use crate::graph::Graph;
+use crate::graph_value::GraphValue;
+use crate::op::{GraphType, Op, OpKind};
+
 #[derive(Clone)]
-pub struct Input<T: GraphType> {
-    pub(crate) name: String,
-    pub(crate) op: Rc<crate::op::Op>,
-    _marker: std::marker::PhantomData<T>,
+pub struct Input<T> {
+    op: Rc<Op>,
+    _marker: PhantomData<T>,
 }
 
 impl<T: GraphType> Input<T> {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: impl Into<String>) -> Self {
         Self {
-            name: name.to_string(),
-            op: Rc::new(crate::op::Op::new(crate::op::OpKind::Input {
-                name: name.to_string(),
-            })),
-            _marker: std::marker::PhantomData,
+            op: Rc::new(Op::new(
+                OpKind::Input {
+                    name: name.into(),
+                    dtype: T::scalar_type(),
+                },
+                Vec::new(),
+            )),
+            _marker: PhantomData,
         }
     }
 
     pub fn map<U, F>(self, f: F) -> GraphValue<U>
     where
-        U: GraphType,
         F: FnOnce(GraphValue<T>) -> GraphValue<U>,
     {
-        let value = GraphValue::from_op(self.op);
-        f(value)
+        f(GraphValue::from_op(self.op))
     }
 
-    pub fn filter<F>(self, predicate: F) -> Self
+    pub fn filter<F>(self, predicate: F) -> GraphValue<T>
     where
         F: FnOnce(GraphValue<T>) -> GraphValue<bool>,
     {
-        let value = GraphValue::from_op(self.op.clone());
-        let predicate = predicate(value);
-        Self {
-            name: self.name,
-            op: Rc::new(crate::op::Op::new(crate::op::OpKind::Filter {
-                input: self.op,
-                predicate: predicate.op,
-            })),
-            _marker: std::marker::PhantomData,
-        }
+        let value = GraphValue::from_op(self.op);
+        let predicate = predicate(value.clone());
+        GraphValue::from_op(Rc::new(Op::new(
+            OpKind::Filter,
+            vec![value.op().clone(), predicate.op().clone()],
+        )))
+    }
+
+    pub fn fold<U, F>(self, _init: U, _f: F) -> U
+    where
+        F: FnOnce(U, GraphValue<T>) -> U,
+    {
+        todo!("fold graph construction is not implemented yet")
+    }
+
+    pub fn reduce<F>(self, _f: F) -> T
+    where
+        F: FnOnce(GraphValue<T>, GraphValue<T>) -> GraphValue<T>,
+    {
+        todo!("reduce graph construction is not implemented yet")
+    }
+
+    pub fn scan<U, F>(self, _init: U, _f: F) -> Input<U>
+    where
+        F: FnOnce(U, GraphValue<T>) -> U,
+    {
+        todo!("scan graph construction is not implemented yet")
+    }
+
+    pub fn collect(self) -> tensorflow::Graph {
+        Graph::from_output(self.op)
+            .to_tensorflow()
+            .expect("failed to lower GraphPack graph to TensorFlow")
+    }
+
+    pub(crate) fn op(&self) -> &Rc<Op> {
+        &self.op
     }
 }
 
@@ -50,116 +81,79 @@ pub trait InputTupleMap {
 
     fn map<U, Func>(self, f: Func) -> GraphValue<U>
     where
-        U: GraphType,
         Func: FnOnce(Self::GraphValues) -> GraphValue<U>;
 }
 
-impl<A: GraphType, B: GraphType> InputTupleMap for (Input<A>, Input<B>) {
-    type GraphValues = (GraphValue<A>, GraphValue<B>);
+macro_rules! impl_input_tuple_map {
+    ($(($($input:ident, $value:ident),+)),+ $(,)?) => {
+        $(
+            impl<$($input: GraphType),+> InputTupleMap for ($(Input<$input>,)+) {
+                type GraphValues = ($(GraphValue<$input>,)+);
+
+                fn map<U, Func>(self, f: Func) -> GraphValue<U>
+                where
+                    Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
+                {
+                    let ($( $value, )+) = self;
+                    f(($(GraphValue::from_op($value.op),)+))
+                }
+            }
+        )+
+    };
+}
+
+impl_input_tuple_map!(
+    (A, a, B, b),
+    (A, a, B, b, C, c),
+    (A, a, B, b, C, c, D, d),
+    (A, a, B, b, C, c, D, d, E, e),
+    (A, a, B, b, C, c, D, d, E, e, F, f),
+    (A, a, B, b, C, c, D, d, E, e, F, f, G, g),
+    (A, a, B, b, C, c, D, d, E, e, F, f, G, g, H, h),
+);
+
+impl<A: GraphType, B: GraphType> InputTupleMap for ((Input<A>, Input<B>),) {
+    type GraphValues = ((GraphValue<A>, GraphValue<B>),);
 
     fn map<U, Func>(self, f: Func) -> GraphValue<U>
     where
-        U: GraphType,
         Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
     {
-        let (a, b) = self;
-        f((GraphValue::from_op(a.op), GraphValue::from_op(b.op)))
+        let ((a, b),) = self;
+        f(((GraphValue::from_op(a.op), GraphValue::from_op(b.op)),))
     }
 }
 
-impl<A: GraphType, B: GraphType, C: GraphType> InputTupleMap
-    for (Input<A>, Input<B>, Input<C>)
-{
-    type GraphValues = (GraphValue<A>, GraphValue<B>, GraphValue<C>);
-
-    fn map<U, Func>(self, f: Func) -> GraphValue<U>
-    where
-        U: GraphType,
-        Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
-    {
-        let (a, b, c) = self;
-        f((
-            GraphValue::from_op(a.op),
-            GraphValue::from_op(b.op),
-            GraphValue::from_op(c.op),
-        ))
-    }
-}
-
-impl<A: GraphType, B: GraphType, C: GraphType, D: GraphType> InputTupleMap
-    for (Input<A>, Input<B>, Input<C>, Input<D>)
+impl<A: GraphType, B: GraphType, C: GraphType, D: GraphType>
+    InputTupleMap for ((Input<A>, Input<B>), (Input<C>, Input<D>))
 {
     type GraphValues = (
-        GraphValue<A>,
-        GraphValue<B>,
-        GraphValue<C>,
-        GraphValue<D>,
+        (GraphValue<A>, GraphValue<B>),
+        (GraphValue<C>, GraphValue<D>),
     );
 
     fn map<U, Func>(self, f: Func) -> GraphValue<U>
     where
-        U: GraphType,
         Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
     {
-        let (a, b, c, d) = self;
+        let ((a, b), (c, d)) = self;
         f((
-            GraphValue::from_op(a.op),
-            GraphValue::from_op(b.op),
-            GraphValue::from_op(c.op),
-            GraphValue::from_op(d.op),
+            (GraphValue::from_op(a.op), GraphValue::from_op(b.op)),
+            (GraphValue::from_op(c.op), GraphValue::from_op(d.op)),
         ))
     }
 }
 
 impl<
-        A: GraphType,
-        B: GraphType,
-        C: GraphType,
-        D: GraphType,
-        E: GraphType,
-        F: GraphType,
-    > InputTupleMap
-    for (
-        (Input<A>, Input<B>, Input<C>),
-        (Input<D>, Input<E>, Input<F>),
-    )
-{
-    type GraphValues = (
-        (GraphValue<A>, GraphValue<B>, GraphValue<C>),
-        (GraphValue<D>, GraphValue<E>, GraphValue<F>),
-    );
-
-    fn map<U, Func>(self, func: Func) -> GraphValue<U>
-    where
-        U: GraphType,
-        Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
-    {
-        let ((a, b, c), (d, e, f)) = self;
-        func((
-            (
-                GraphValue::from_op(a.op),
-                GraphValue::from_op(b.op),
-                GraphValue::from_op(c.op),
-            ),
-            (
-                GraphValue::from_op(d.op),
-                GraphValue::from_op(e.op),
-                GraphValue::from_op(f.op),
-            ),
-        ))
-    }
-}
-
-impl<
-        A: GraphType,
-        B: GraphType,
-        C: GraphType,
-        D: GraphType,
-        E: GraphType,
-        F: GraphType,
-        G: GraphType,
-        H: GraphType,
-    > InputTupleMap
+    A: GraphType,
+    B: GraphType,
+    C: GraphType,
+    D: GraphType,
+    E: GraphType,
+    F: GraphType,
+    G: GraphType,
+    H: GraphType,
+> InputTupleMap
     for (
         (Input<A>, Input<B>, Input<C>, Input<D>),
         (Input<E>, Input<F>, Input<G>, Input<H>),
@@ -172,7 +166,6 @@ impl<
 
     fn map<U, Func>(self, func: Func) -> GraphValue<U>
     where
-        U: GraphType,
         Func: FnOnce(Self::GraphValues) -> GraphValue<U>,
     {
         let ((a, b, c, d), (e, f, g, h)) = self;
