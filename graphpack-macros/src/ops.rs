@@ -14,6 +14,12 @@ pub fn binary_op(op: &BinOp) -> Option<TokenStream> {
         BinOp::BitXor(_) => "BitwiseXor",
         BinOp::Shl(_) => "LeftShift",
         BinOp::Shr(_) => "RightShift",
+        BinOp::Eq(_) => "Equal",
+        BinOp::Ne(_) => "NotEqual",
+        BinOp::Lt(_) => "Less",
+        BinOp::Le(_) => "LessEqual",
+        BinOp::Gt(_) => "Greater",
+        BinOp::Ge(_) => "GreaterEqual",
         _ => return None,
     };
     Some(quote!(#name))
