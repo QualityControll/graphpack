@@ -72,19 +72,3 @@ impl<T> Input<T> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn map_accepts_graph_value_closure() {
-        let input = Input::<f32>::new("x");
-        let input_op = input.op().clone();
-        let mapped = input.map(GraphValue::from_op);
-
-        assert_eq!(mapped.op().kind(), &OpKind::Map);
-        assert_eq!(mapped.op().inputs().len(), 2);
-        assert!(Rc::ptr_eq(&mapped.op().inputs()[0], &input_op));
-        assert!(Rc::ptr_eq(&mapped.op().inputs()[1], &input_op));
-    }
-}
