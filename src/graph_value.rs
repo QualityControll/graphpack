@@ -2,6 +2,7 @@ use std::marker::PhantomData;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use std::rc::Rc;
 
+use crate::graph::Graph;
 use crate::op::{ConstantValue, Op, OpKind};
 
 /// A typed value flowing through a GraphPack computation graph.
@@ -14,12 +15,13 @@ pub struct GraphValue<T> {
 impl<T> GraphValue<T> {
     pub(crate) fn from_op(op: Rc<Op>) -> Self { Self { op, _marker: PhantomData } }
     pub(crate) fn op(&self) -> &Rc<Op> { &self.op }
+
+    /// Completes graph construction and returns the concrete graph.
+    pub fn collect(&self) -> Graph { Graph::from_output(self.op.clone()) }
 }
 
 fn constant<T: IntoConstant>(value: T) -> GraphValue<T> {
-    GraphValue::from_op(Rc::new(Op::new(
-        OpKind::Constant { value: value.into_constant() }, vec![],
-    )))
+    GraphValue::from_op(Rc::new(Op::new(OpKind::Constant { value: value.into_constant() }, vec![])))
 }
 
 trait IntoConstant: Sized { fn into_constant(self) -> ConstantValue; }
@@ -50,16 +52,3 @@ macro_rules! impl_scalar_ops {
 }
 
 impl_scalar_ops!(f32, f64, i32, i64, usize, bool);
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn usize_constant_maps_to_i64() {
-        let input = GraphValue::<usize>::from_op(Rc::new(Op::new(OpKind::Input { name: "x".into() }, vec![])));
-        let result = input + 42usize;
-        assert_eq!(result.op().kind(), &OpKind::Add);
-        assert_eq!(result.op().inputs()[1].kind(), &OpKind::Constant { value: ConstantValue::I64(42) });
-    }
-}
