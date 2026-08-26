@@ -179,7 +179,7 @@ mod tests {
         let x = Input::<i32>::new("x");
         let y = Input::<i32>::new("y");
         let graph = (x, y)
-            .map(|(x, y)| (x * x) + (y * y) + (x * y))
+            .map(|(x, y)| (x.clone() * x) + (y.clone() * y) + (x * y))
             .collect();
         let output: Tensor<i32> = run_graph(
             &graph,
