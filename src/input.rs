@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 use std::rc::Rc;
 
+use crate::graph::Graph;
 use crate::graph_value::GraphValue;
 use crate::op::{Op, OpKind};
 
@@ -13,62 +14,40 @@ pub struct Input<T> {
 
 impl<T> Input<T> {
     pub fn new(name: impl Into<String>) -> Self {
-        Self {
-            op: Rc::new(Op::new(
-                OpKind::Input { name: name.into() },
-                Vec::new(),
-            )),
-            _marker: PhantomData,
-        }
+        Self { op: Rc::new(Op::new(OpKind::Input { name: name.into() }, Vec::new())), _marker: PhantomData }
     }
 
-    /// Applies a transformation to each element.
     pub fn map<U, F>(self, f: F) -> Input<U>
-    where
-        F: FnOnce(GraphValue<T>) -> GraphValue<U>,
-    {
+    where F: FnOnce(GraphValue<T>) -> GraphValue<U> {
         let value = GraphValue::from_op(self.op.clone());
         let result = f(value);
-        Input {
-            op: Rc::new(Op::new(OpKind::Map, vec![self.op, result.op])),
-            _marker: PhantomData,
-        }
+        Input { op: Rc::new(Op::new(OpKind::Map, vec![self.op, result.op])), _marker: PhantomData }
     }
 
+    /// Materializes this input and all operations built from it into a graph.
+    pub fn materialize(&self) -> Graph { Graph::from_output(self.op.clone()) }
+
     pub fn filter<F>(self, _predicate: F) -> Input<T>
-    where
-        F: FnOnce(&GraphValue<T>) -> GraphValue<bool>,
-    {
+    where F: FnOnce(&GraphValue<T>) -> GraphValue<bool> {
         todo!("filter graph construction is not implemented yet")
     }
 
     pub fn fold<U, F>(self, _init: U, _f: F) -> U
-    where
-        F: FnOnce(U, GraphValue<T>) -> U,
-    {
+    where F: FnOnce(U, GraphValue<T>) -> U {
         todo!("fold graph construction is not implemented yet")
     }
 
     pub fn reduce<F>(self, _f: F) -> T
-    where
-        F: FnOnce(GraphValue<T>, GraphValue<T>) -> GraphValue<T>,
-    {
+    where F: FnOnce(GraphValue<T>, GraphValue<T>) -> GraphValue<T> {
         todo!("reduce graph construction is not implemented yet")
     }
 
     pub fn scan<U, F>(self, _init: U, _f: F) -> Input<U>
-    where
-        F: FnOnce(U, GraphValue<T>) -> U,
-    {
+    where F: FnOnce(U, GraphValue<T>) -> U {
         todo!("scan graph construction is not implemented yet")
     }
 
-    pub fn collect(self) -> Self {
-        self
-    }
+    pub fn collect(self) -> Self { self }
 
-    pub(crate) fn op(&self) -> &Rc<Op> {
-        &self.op
-    }
+    pub(crate) fn op(&self) -> &Rc<Op> { &self.op }
 }
-
