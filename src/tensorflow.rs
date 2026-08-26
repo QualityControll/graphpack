@@ -12,6 +12,7 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
     let output_ptr = Rc::as_ptr(graph.output());
 
     for op in graph.operations() {
+        let op_ptr = Rc::as_ptr(op);
         let operation = match op.kind() {
             OpKind::Input { name, dtype } => {
                 let mut desc = tensorflow_graph.new_operation("Placeholder", name).map_err(|e| e.to_string())?;
@@ -20,7 +21,7 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
                 desc.finish().map_err(|e| e.to_string())?
             }
             OpKind::Constant { value } => {
-                let mut desc = tensorflow_graph.new_operation("Const", &node_name(op, output_ptr)).map_err(|e| e.to_string())?;
+                let mut desc = tensorflow_graph.new_operation("Const", &node_name(op_ptr, output_ptr)).map_err(|e| e.to_string())?;
                 set_constant(&mut desc, value)?;
                 desc.finish().map_err(|e| e.to_string())?
             }
@@ -28,7 +29,7 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
                 let op_type = match op.kind() {
                     OpKind::Add => "Add", OpKind::Sub => "Sub", OpKind::Mul => "Mul", OpKind::Div => "Div", OpKind::Neg => "Neg", _ => unreachable!(),
                 };
-                let mut desc = tensorflow_graph.new_operation(op_type, &node_name(op, output_ptr)).map_err(|e| e.to_string())?;
+                let mut desc = tensorflow_graph.new_operation(op_type, &node_name(op_ptr, output_ptr)).map_err(|e| e.to_string())?;
                 for input in op.inputs() {
                     let lowered_input = lowered.get(&Rc::as_ptr(input)).ok_or_else(|| "operation input was not lowered".to_string())?;
                     desc.add_input(lowered_input.clone());
@@ -37,7 +38,7 @@ pub(crate) fn lower(graph: &Graph) -> Result<TensorFlowGraph, String> {
             }
             OpKind::Map => return Err("Map nodes should be eliminated before TensorFlow lowering".into()),
         };
-        lowered.insert(Rc::as_ptr(op), operation);
+        lowered.insert(op_ptr, operation);
     }
 
     Ok(tensorflow_graph)
@@ -58,6 +59,6 @@ fn set_constant(desc: &mut tensorflow::OperationDescription<'_>, value: &Constan
     Ok(())
 }
 
-fn node_name(op: &Op, output_ptr: *const Op) -> String {
-    if Rc::as_ptr(&Rc::new(op.clone())) == output_ptr { "output".to_string() } else { format!("graphpack_{:p}", Rc::as_ptr(&Rc::new(op.clone()))) }
+fn node_name(op_ptr: *const Op, output_ptr: *const Op) -> String {
+    if op_ptr == output_ptr { "output".to_string() } else { format!("graphpack_{:p}", op_ptr) }
 }
