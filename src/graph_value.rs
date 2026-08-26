@@ -69,19 +69,29 @@ impl GraphValue<bool> {
 }
 
 pub trait GraphValueTupleMap: Sized {
-    fn map<U, Func>(self, f: Func) -> U;
+    type GraphValues<'a>
+    where
+        Self: 'a;
+
+    fn map<U, Func>(&self, f: Func) -> U
+    where
+        Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U;
 }
 
 macro_rules! impl_graph_value_tuple_map {
     ($(($($value:ident),+)),+ $(,)?) => {
         $(
             impl<$($value),+> GraphValueTupleMap for ($(GraphValue<$value>,)+) {
-                fn map<U, Func>(self, f: Func) -> U
+                type GraphValues<'a> = ($( &'a GraphValue<$value>, )+)
                 where
-                    Func: for<'a> FnOnce(($( &'a GraphValue<$value>, )+)) -> U,
+                    Self: 'a;
+
+                fn map<U, Func>(&self, f: Func) -> U
+                where
+                    Func: for<'a> FnOnce(Self::GraphValues<'a>) -> U,
                 {
                     let ($( $value, )+) = self;
-                    f(($( &$value, )+))
+                    f(($( $value, )+))
                 }
             }
         )+
