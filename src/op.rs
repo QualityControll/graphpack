@@ -12,6 +12,11 @@ pub struct Op {
 pub enum OpKind {
     Input { name: String },
     Map,
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Neg,
 }
 
 impl Op {
