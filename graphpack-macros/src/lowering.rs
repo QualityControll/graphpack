@@ -152,7 +152,7 @@ impl LoweringContext {
                     };
                     let init = local.init.as_ref().ok_or_else(|| syn::Error::new_spanned(local, "graphpack! let bindings require an initializer"))?;
                     let value = self.lower_expr(&init.expr)?;
-                    self.values.insert(ident.to_string(), quote!(#ident));
+                    self.values.insert(ident.to_string(), quote!(#ident.clone()));
                     generated.extend(quote! {
                         let #ident: ::tensorflow::Output = #value;
                     });
