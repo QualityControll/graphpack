@@ -113,7 +113,10 @@ impl LoweringContext {
                 let else_branch = else_branch.as_ref().ok_or_else(|| {
                     syn::Error::new_spanned(expr, "graphpack! if expressions require an else branch")
                 })?;
-                let else_value = self.lower_expr(&else_branch.1)?;
+                let else_value = match &*else_branch.1 {
+                    Expr::Block(block) => self.lower_statements(&block.block.stmts)?,
+                    expr => self.lower_expr(expr)?,
+                };
                 self.values = outer_values;
 
                 let node_name = self.node_name("if");
@@ -132,6 +135,7 @@ impl LoweringContext {
                     ::tensorflow::Output::from(operation)
                 }))
             }
+            Expr::Block(block) => self.lower_statements(&block.block.stmts),
             _ => Err(syn::Error::new_spanned(expr, "unsupported graph expression")),
         }
     }
