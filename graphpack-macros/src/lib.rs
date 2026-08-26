@@ -64,26 +64,15 @@ impl Lowerer {
             (ScalarType::F32, syn::Lit::Float(value)) => value.to_token_stream(),
             (ScalarType::F32, syn::Lit::Int(value)) => value.to_token_stream(),
             (ScalarType::I32, syn::Lit::Int(value)) => value.to_token_stream(),
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    lit,
-                    "literal type does not match the graph input type",
-                ))
-            }
+            _ => return Err(syn::Error::new_spanned(lit, "literal type does not match the graph input type")),
         };
 
         Ok(quote! {
             {
-                let mut __op = graph
-                    .new_operation("Const", stringify!(#name))
-                    .expect("failed to create Const operation");
-                __op
-                    .set_attr_type("dtype", #data_type)
-                    .expect("failed to set Const dtype");
+                let mut __op = graph.new_operation("Const", stringify!(#name)).expect("failed to create Const operation");
+                __op.set_attr_type("dtype", #data_type).expect("failed to set Const dtype");
                 let __value = ::tensorflow::Tensor::<#tensor_type>::from(#value);
-                __op
-                    .set_attr_tensor("value", __value)
-                    .expect("failed to set Const value");
+                __op.set_attr_tensor("value", __value).expect("failed to set Const value");
                 __op.finish().expect("failed to finish Const operation").into()
             }
         })
@@ -110,9 +99,7 @@ impl Lowerer {
 
         Ok(quote! {
             {
-                let mut __op = graph
-                    .new_operation(#op_name, stringify!(#name))
-                    .expect("failed to create TensorFlow operation");
+                let mut __op = graph.new_operation(#op_name, stringify!(#name)).expect("failed to create TensorFlow operation");
                 __op.add_input(#left);
                 __op.add_input(#right);
                 __op.finish().expect("failed to finish TensorFlow operation").into()
@@ -131,9 +118,7 @@ impl Lowerer {
 
         Ok(quote! {
             {
-                let mut __op = graph
-                    .new_operation(#op_name, stringify!(#name))
-                    .expect("failed to create TensorFlow operation");
+                let mut __op = graph.new_operation(#op_name, stringify!(#name)).expect("failed to create TensorFlow operation");
                 __op.add_input(#expr);
                 __op.finish().expect("failed to finish TensorFlow operation").into()
             }
@@ -156,12 +141,8 @@ impl Lowerer {
                         statements.push(quote! { let _ = #lowered; });
                     }
                 }
-                Stmt::Item(item) => {
-                    return Err(syn::Error::new_spanned(item, "items are not supported inside graphpack! closures"))
-                }
-                Stmt::Macro(mac) => {
-                    return Err(syn::Error::new_spanned(mac, "macros are not supported inside graphpack! closures"))
-                }
+                Stmt::Item(item) => return Err(syn::Error::new_spanned(item, "items are not supported inside graphpack! closures")),
+                Stmt::Macro(mac) => return Err(syn::Error::new_spanned(mac, "macros are not supported inside graphpack! closures")),
             }
         }
 
@@ -226,19 +207,12 @@ pub fn graphpack(input: TokenStream) -> TokenStream {
     TokenStream::from(quote! {
         {
             let mut graph = ::tensorflow::Graph::new();
-            let mut input_operation = graph
-                .new_operation("Placeholder", stringify!(#input_name))
-                .expect("failed to create input operation");
-            input_operation
-                .set_attr_type("dtype", #data_type)
-                .expect("failed to set input data type");
-            let input_operation = input_operation
-                .finish()
-                .expect("failed to finish input operation");
+            let mut input_operation = graph.new_operation("Placeholder", stringify!(#input_name)).expect("failed to create input operation");
+            input_operation.set_attr_type("dtype", #data_type).expect("failed to set input data type");
+            let input_operation = input_operation.finish().expect("failed to finish input operation");
+            let #input_name = ::tensorflow::Output::from(input_operation.clone());
             let __graphpack_result = #body;
-            let mut __graphpack_output = graph
-                .new_operation("Identity", "output")
-                .expect("failed to create output operation");
+            let mut __graphpack_output = graph.new_operation("Identity", "output").expect("failed to create output operation");
             __graphpack_output.add_input(__graphpack_result);
             __graphpack_output.finish().expect("failed to finish output operation");
             graph.graph_def().expect("failed to serialize GraphDef")
