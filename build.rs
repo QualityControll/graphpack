@@ -1,6 +1,6 @@
 use std::{env, fs, path::PathBuf, slice};
 
-use prost07::Message;
+use protobuf::Message;
 use tensorflow_proto::tensorflow::core::framework::op_def::OpList;
 
 fn main() {
@@ -20,7 +20,7 @@ fn main() {
         slice::from_raw_parts(buffer_ref.data as *const u8, buffer_ref.length)
     };
 
-    let mut op_list = OpList::decode(bytes).unwrap_or_else(|error| {
+    let mut op_list = OpList::parse_from_bytes(bytes).unwrap_or_else(|error| {
         unsafe { tensorflow_sys::TF_DeleteBuffer(buffer) };
         panic!("failed to decode TensorFlow operation list: {error}");
     });
@@ -35,21 +35,17 @@ fn main() {
         op_list.op.len()
     );
 
-    let out_dir = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is not set"));
-    let output = out_dir.join("tensorflow_ops.rs");
-
-    // Keep the complete, official TensorFlow protobuf representation. The
-    // generated API exposes typed OpDef values rather than flattening or
-    // reimplementing TensorFlow's protobuf schema in GraphPack.
+    let output = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR is not set"))
+        .join("tensorflow_ops.rs");
     let mut generated = String::from(
         "use tensorflow_proto::tensorflow::core::framework::op_def::OpDef;\n\n"
     );
     generated.push_str("pub fn tensorflow_ops() -> Vec<OpDef> {\n    vec![\n");
 
     for op in &op_list.op {
-        let bytes = op.encode_to_vec();
+        let bytes = op.write_to_bytes().expect("failed to serialize TensorFlow OpDef");
         generated.push_str(&format!(
-            "        OpDef::decode(&{:?}[..]).expect(\"generated TensorFlow OpDef failed to decode\"),\n",
+            "        OpDef::parse_from_bytes(&{:?}).expect(\"generated TensorFlow OpDef failed to decode\"),\n",
             bytes
         ));
     }
