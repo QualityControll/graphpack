@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "graphpack-macros"]
+resolver = "3"
+
 [package]
 name = "graphpack"
 version = "0.1.0"
