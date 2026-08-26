@@ -9,6 +9,7 @@ use crate::types::ScalarType;
 pub struct LoweringContext {
     pub values: HashMap<String, TokenStream>,
     pub scalar_type: ScalarType,
+    next_node_id: usize,
 }
 
 impl LoweringContext {
@@ -16,7 +17,14 @@ impl LoweringContext {
         Self {
             values: HashMap::new(),
             scalar_type,
+            next_node_id: 0,
         }
+    }
+
+    fn node_name(&mut self, prefix: &str) -> String {
+        let id = self.next_node_id;
+        self.next_node_id += 1;
+        format!("{prefix}_{id}")
     }
 
     pub fn lower_expr(&mut self, expr: &Expr) -> syn::Result<TokenStream> {
@@ -42,9 +50,10 @@ impl LoweringContext {
                     }
                     _ => return Err(syn::Error::new_spanned(lit, "unsupported graph literal")),
                 };
+                let node_name = self.node_name("constant");
                 Ok(quote!({
                     let mut constant = graph
-                        .new_operation("Const", "constant")
+                        .new_operation("Const", #node_name)
                         .expect("failed to create constant operation");
                     constant
                         .set_attr_type("dtype", #data_type)
@@ -66,11 +75,12 @@ impl LoweringContext {
                     .ok_or_else(|| syn::Error::new_spanned(op, "unsupported binary operator"))?;
                 let left = self.lower_expr(left)?;
                 let right = self.lower_expr(right)?;
+                let node_name = self.node_name("operation");
                 Ok(quote!({
                     let left_output: ::tensorflow::Output = #left;
                     let right_output: ::tensorflow::Output = #right;
                     let mut operation = graph
-                        .new_operation(#op_name, "operation")
+                        .new_operation(#op_name, #node_name)
                         .expect("failed to create operation");
                     operation.add_input(left_output);
                     operation.add_input(right_output);
@@ -82,10 +92,11 @@ impl LoweringContext {
                 let op_name = ops::unary_op(op)
                     .ok_or_else(|| syn::Error::new_spanned(op, "unsupported unary operator"))?;
                 let input = self.lower_expr(expr)?;
+                let node_name = self.node_name("operation");
                 Ok(quote!({
                     let input_output: ::tensorflow::Output = #input;
                     let mut operation = graph
-                        .new_operation(#op_name, "operation")
+                        .new_operation(#op_name, #node_name)
                         .expect("failed to create operation");
                     operation.add_input(input_output);
                     let operation = operation.finish().expect("failed to finish operation");
