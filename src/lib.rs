@@ -38,7 +38,6 @@ mod tests {
         inputs: Vec<(&str, Tensor<i32>)>,
     ) -> Tensor<i32> {
         let output_op: Operation = graph.operation_by_name("output").unwrap().unwrap();
-        let mut args = SessionRunArgs::new();
         let mut input_ops = Vec::with_capacity(inputs.len());
 
         for (name, input) in inputs {
@@ -46,6 +45,7 @@ mod tests {
             input_ops.push((input_op, input));
         }
 
+        let mut args = SessionRunArgs::new();
         for (input_op, input) in &input_ops {
             args.add_feed(input_op, 0, input);
         }
