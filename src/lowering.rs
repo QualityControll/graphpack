@@ -143,7 +143,13 @@ fn lower_enumerate_index(
     range.add_input(delta);
     range.set_attr_type("Tidx", DataType::Int64)
         .map_err(|e| e.to_string())?;
-    range.finish().map_err(|e| e.to_string())
+    let range = range.finish().map_err(|e| e.to_string())?;
+    cast(
+        tf,
+        range,
+        DataType::Int64,
+        &format!("{name}_i64"),
+    )
 }
 fn lower_tuple_get(
     tf: &mut TensorFlowGraph,
