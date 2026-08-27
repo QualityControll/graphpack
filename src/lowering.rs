@@ -295,27 +295,19 @@ fn lower_reduce(
     name: &str,
     typ: &str,
 ) -> Result<::tensorflow::Operation, String> {
-    let input_type = node_scalar_type(op.inputs()[0]);
-    let mut input = lowered
+    let input = lowered
         .get(&op.inputs()[0])
         .ok_or("reduction input was not lowered")?
         .clone();
-    let cast_min_max = matches!(typ, "Min" | "Max");
-    let cast_i32 = cast_min_max && input_type == Some(ScalarType::I32);
-    if cast_min_max {
-        input = cast(tf, input, DataType::Int64, &format!("{name}_input_i64"))?;
-    }
     let axis = const_i64_scalar(tf, &format!("{name}_axis"), 0)?;
     let mut d = tf.new_operation(typ, name).map_err(|e| e.to_string())?;
     d.add_input(input);
     d.add_input(axis);
+    d.set_attr_type("Tidx", DataType::Int64)
+        .map_err(|e| e.to_string())?;
     d.set_attr_bool("keep_dims", false)
         .map_err(|e| e.to_string())?;
-    let result = d.finish().map_err(|e| e.to_string())?;
-    if cast_i32 {
-        return cast(tf, result, DataType::Int32, name);
-    }
-    Ok(result)
+    d.finish().map_err(|e| e.to_string())
 }
 fn lower_count(
     tf: &mut TensorFlowGraph,
