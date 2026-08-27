@@ -141,6 +141,8 @@ fn lower_enumerate_index(
     range.add_input(start);
     range.add_input(size);
     range.add_input(delta);
+    range.set_attr_type("Tidx", DataType::Int64)
+        .map_err(|e| e.to_string())?;
     range.finish().map_err(|e| e.to_string())
 }
 fn lower_tuple_get(
