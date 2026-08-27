@@ -64,9 +64,10 @@ mod tests {
     fn min_max_compose_after_enumerate_map() {
         let x = Input::<i64>::new("x");
         let graph = x.sequence().enumerate().map(|(i, v)| v + i).collect();
+        println!("graph is {:?}", graph);
         let output: Tensor<i64> = run_graph(
             &graph,
-            vec![("x", Tensor::new(&[3]).with_values(&[10, 5, 20]).unwrap())],
+            vec![("x", Tensor::<i64>::new(&[3]).with_values(&[10, 5, 20]).unwrap())],
         );
         //assert_eq!(output[0], 22);
     }

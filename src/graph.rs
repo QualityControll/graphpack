@@ -50,6 +50,5 @@ fn collect(id: NodeId, visited: &mut HashSet<NodeId>, operations: &mut Vec<(Node
     for &input in op.inputs() {
         collect(input, visited, operations)
     }
-    println!("op is: {:?}", op);
     operations.push((id, op));
 }
