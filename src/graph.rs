@@ -39,7 +39,7 @@ impl Graph {
         &self.operations
     }
     pub fn to_tensorflow(&self) -> Result<tensorflow::Graph, String> {
-        crate::tensorflow::lower(self)
+        crate::lowering::lower(self)
     }
 }
 fn collect(id: NodeId, visited: &mut HashSet<NodeId>, operations: &mut Vec<(NodeId, Rc<Op>)>) {

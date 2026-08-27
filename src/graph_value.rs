@@ -63,7 +63,7 @@ impl GraphValue<bool> {
         unary(self, OpKind::LogicalNot)
     }
 }
-fn constant<T: IntoConstant>(value: T) -> GraphValue<T> {
+pub(crate) fn constant<T: IntoConstant>(value: T) -> GraphValue<T> {
     GraphValue::from_op(Op::new(
         OpKind::Constant {
             value: value.into_constant(),
@@ -71,7 +71,7 @@ fn constant<T: IntoConstant>(value: T) -> GraphValue<T> {
         vec![],
     ))
 }
-trait IntoConstant: Sized {
+pub(crate) trait IntoConstant: Sized {
     fn into_constant(self) -> ConstantValue;
 }
 impl IntoConstant for f32 {

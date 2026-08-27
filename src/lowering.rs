@@ -141,6 +141,8 @@ fn lower_enumerate_index(
     range.add_input(start);
     range.add_input(size);
     range.add_input(delta);
+    range.set_attr_type("Tidx", DataType::Int64)
+        .map_err(|e| e.to_string())?;
     range.finish().map_err(|e| e.to_string())
 }
 fn lower_tuple_get(
@@ -299,10 +301,12 @@ fn lower_reduce(
         .get(&op.inputs()[0])
         .ok_or("reduction input was not lowered")?
         .clone();
-    let axis = const_i32_vec(tf, &format!("{name}_axis"), 0)?;
+    let axis = const_i64_scalar(tf, &format!("{name}_axis"), 0)?;
     let mut d = tf.new_operation(typ, name).map_err(|e| e.to_string())?;
     d.add_input(input);
     d.add_input(axis);
+    d.set_attr_type("Tidx", DataType::Int64)
+        .map_err(|e| e.to_string())?;
     d.set_attr_bool("keep_dims", false)
         .map_err(|e| e.to_string())?;
     d.finish().map_err(|e| e.to_string())
@@ -472,81 +476,81 @@ fn data_type(d: ScalarType) -> DataType {
     }
 }
 fn set_constant(
-    d: &mut ::tensorflow::OperationDescription<'_>,
-    v: &ConstantValue,
+    d: &mut tensorflow::OperationDescription,
+    value: &ConstantValue,
 ) -> Result<(), String> {
-    match v {
-        ConstantValue::F32(x) => {
+    match value {
+        ConstantValue::F32(v) => {
             d.set_attr_type("dtype", DataType::Float)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<f32>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<f32>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::F64(x) => {
+        ConstantValue::F64(v) => {
             d.set_attr_type("dtype", DataType::Double)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<f64>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<f64>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::I8(x) => {
+        ConstantValue::I8(v) => {
             d.set_attr_type("dtype", DataType::Int8)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<i8>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<i8>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::U8(x) => {
+        ConstantValue::U8(v) => {
             d.set_attr_type("dtype", DataType::UInt8)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<u8>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<u8>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::I16(x) => {
+        ConstantValue::I16(v) => {
             d.set_attr_type("dtype", DataType::Int16)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<i16>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<i16>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::U16(x) => {
+        ConstantValue::U16(v) => {
             d.set_attr_type("dtype", DataType::UInt16)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<u16>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<u16>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::I32(x) => {
+        ConstantValue::I32(v) => {
             d.set_attr_type("dtype", DataType::Int32)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<i32>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<i32>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::I64(x) => {
+        ConstantValue::I64(v) => {
             d.set_attr_type("dtype", DataType::Int64)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<i64>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<i64>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::Bool(x) => {
+        ConstantValue::Bool(v) => {
             d.set_attr_type("dtype", DataType::Bool)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<bool>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<bool>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::Complex64(x) => {
+        ConstantValue::Complex64(v) => {
             d.set_attr_type("dtype", DataType::Complex64)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<Complex<f32>>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<Complex<f32>>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::Complex128(x) => {
+        ConstantValue::Complex128(v) => {
             d.set_attr_type("dtype", DataType::Complex128)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<Complex<f64>>::from(*x))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<Complex<f64>>::from(*v))
+                .map_err(|e| e.to_string())?;
         }
-        ConstantValue::String(x) => {
+        ConstantValue::String(v) => {
             d.set_attr_type("dtype", DataType::String)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<String>::from(x.clone()))
-                .map_err(|e| e.to_string())?
+            d.set_attr_tensor("value", Tensor::<String>::from(v.clone()))
+                .map_err(|e| e.to_string())?;
         }
     }
     Ok(())
@@ -555,6 +559,6 @@ fn node_name(id: NodeId, output: NodeId) -> String {
     if id == output {
         "output".into()
     } else {
-        format!("graphpack_{}", id.0)
+        format!("n{}", id.0)
     }
 }

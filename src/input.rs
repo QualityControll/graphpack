@@ -1,5 +1,5 @@
 use crate::graph::Graph;
-use crate::graph_value::GraphValue;
+use crate::graph_value::{GraphValue, IntoConstant, constant};
 use crate::op::{GraphType, Op, OpKind};
 use std::marker::PhantomData;
 
@@ -126,17 +126,18 @@ impl<T: GraphType> Input<T> {
     pub fn count(self) -> GraphValue<i64> {
         self.sequence().count()
     }
-    pub fn fold<U, F>(self, _init: U, _f: F) -> GraphValue<U>
+    pub fn fold<F>(self, init: T, f: F) -> GraphValue<T>
     where
-        F: FnOnce(GraphValue<U>, GraphValue<T>) -> GraphValue<U>,
+        T: IntoConstant,
+        F: FnOnce(GraphValue<T>, GraphValue<T>) -> GraphValue<T>,
     {
-        todo!("fold lowering is not implemented yet")
+        self.sequence().fold(init, f)
     }
-    pub fn reduce<F>(self, _f: F) -> GraphValue<T>
+    pub fn reduce<F>(self, f: F) -> GraphValue<T>
     where
         F: FnOnce(GraphValue<T>, GraphValue<T>) -> GraphValue<T>,
     {
-        todo!("reduce lowering is not implemented yet")
+        self.sequence().reduce(f)
     }
     pub fn collect(self) -> tensorflow::Graph {
         Graph::from_output(self.node)
@@ -212,6 +213,46 @@ impl<T> GraphSeq<T> {
             vec![self.node],
         )))
     }
+    pub fn fold<F>(self, init: T, f: F) -> GraphValue<T>
+    where
+        T: IntoConstant,
+        F: FnOnce(GraphValue<T>, GraphValue<T>) -> GraphValue<T>,
+    {
+        let init_node = constant(init).node;
+        let result = f(
+            GraphValue::from_node(init_node),
+            GraphValue::from_node(self.node),
+        );
+        match result.op().kind() {
+            OpKind::Add => {
+                GraphValue::from_op(Op::new(OpKind::Add, vec![init_node, self.sum().node]))
+            }
+            OpKind::Mul => {
+                GraphValue::from_op(Op::new(OpKind::Mul, vec![init_node, self.product().node]))
+            }
+            _ => panic!("unsupported fold closure; use + or *"),
+        }
+    }
+    pub fn reduce<F>(self, f: F) -> GraphValue<T>
+    where
+        F: FnOnce(GraphValue<T>, GraphValue<T>) -> GraphValue<T>,
+    {
+        let node = self.node;
+        let result = f(GraphValue::from_node(node), GraphValue::from_node(node));
+        match result.op().kind() {
+            OpKind::Add => self.sum(),
+            OpKind::Mul => self.product(),
+            OpKind::LogicalAnd => GraphValue::from_node(crate::graph::insert(Op::new(
+                OpKind::ReduceAll,
+                vec![self.node],
+            ))),
+            OpKind::LogicalOr => GraphValue::from_node(crate::graph::insert(Op::new(
+                OpKind::ReduceAny,
+                vec![self.node],
+            ))),
+            _ => panic!("unsupported reduce closure; use +, *, &&, or ||"),
+        }
+    }
 }
 impl GraphSeq<bool> {
     pub fn any(self) -> GraphValue<bool> {
@@ -234,7 +275,7 @@ pub trait InputTupleMap {
     where
         Func: FnOnce(Self::GraphValues) -> GraphValue<U>;
 }
-macro_rules! impl_input_tuple_map { ($(($($input:ident, $value:ident),+)),+ $(,)?) => { $( impl<$($input: GraphType),+> InputTupleMap for ($(Input<$input>,)+) { type GraphValues = ($(GraphValue<$input>,)+); fn map<U, Func>(self, func: Func) -> GraphValue<U> where Func: FnOnce(Self::GraphValues) -> GraphValue<U> { let ($( $value, )+) = self; func(($(GraphValue::from_node($value.node),)+)) } } )+ }; }
+macro_rules! impl_input_tuple_map{($(($($input:ident,$value:ident),+)),+$(,)?)=>{$(impl<$($input:GraphType),+>InputTupleMap for($(Input<$input>,)+){type GraphValues=($(GraphValue<$input>,)+);fn map<U,Func>(self,func:Func)->GraphValue<U>where Func:FnOnce(Self::GraphValues)->GraphValue<U>{let($($value,)+)=self;func(($(GraphValue::from_node($value.node),)+))}})+}}
 impl_input_tuple_map!(
     (A, a, B, b),
     (A, a, B, b, C, c),
@@ -246,9 +287,9 @@ impl_input_tuple_map!(
 );
 impl<A: GraphType, B: GraphType> InputTupleMap for ((Input<A>, Input<B>),) {
     type GraphValues = ((GraphValue<A>, GraphValue<B>),);
-    fn map<U, F>(self, func: F) -> GraphValue<U>
+    fn map<U, FN>(self, func: FN) -> GraphValue<U>
     where
-        F: FnOnce(Self::GraphValues) -> GraphValue<U>,
+        FN: FnOnce(Self::GraphValues) -> GraphValue<U>,
     {
         let ((a, b),) = self;
         func(((GraphValue::from_node(a.node), GraphValue::from_node(b.node)),))
@@ -261,9 +302,9 @@ impl<A: GraphType, B: GraphType, C: GraphType, D: GraphType> InputTupleMap
         (GraphValue<A>, GraphValue<B>),
         (GraphValue<C>, GraphValue<D>),
     );
-    fn map<U, F>(self, func: F) -> GraphValue<U>
+    fn map<U, FN>(self, func: FN) -> GraphValue<U>
     where
-        F: FnOnce(Self::GraphValues) -> GraphValue<U>,
+        FN: FnOnce(Self::GraphValues) -> GraphValue<U>,
     {
         let ((a, b), (c, d)) = self;
         func((
