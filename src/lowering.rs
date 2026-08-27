@@ -307,9 +307,7 @@ fn lower_reduce(
         .get(&op.inputs()[0])
         .ok_or("reduction input was not lowered")?
         .clone();
-    let input = if node_scalar_type(op.inputs()[0]) == Some(ScalarType::I64)
-        && input.output_type(0) != DataType::Int64
-    {
+    let input = if node_scalar_type(op.inputs()[0]) == Some(ScalarType::I64) {
         cast(
             tf,
             input,
@@ -567,7 +565,7 @@ fn set_constant(
         ConstantValue::String(v) => {
             d.set_attr_type("dtype", DataType::String)
                 .map_err(|e| e.to_string())?;
-            d.set_attr_tensor("value", Tensor::<String>::from(v.to_string()))
+            d.set_attr_tensor("value", Tensor::<String>::from(v.clone()))
                 .map_err(|e| e.to_string())?;
         }
     }
@@ -575,8 +573,8 @@ fn set_constant(
 }
 fn node_name(id: NodeId, output: NodeId) -> String {
     if id == output {
-        "output".to_string()
+        "output".into()
     } else {
-        format!("node_{}", id.0)
+        format!("n{}", id.0)
     }
 }
