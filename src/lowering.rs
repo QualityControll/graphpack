@@ -307,16 +307,6 @@ fn lower_reduce(
         .get(&op.inputs()[0])
         .ok_or("reduction input was not lowered")?
         .clone();
-    let input = if node_scalar_type(op.inputs()[0]) == Some(ScalarType::I64) {
-        cast(
-            tf,
-            input,
-            DataType::Int64,
-            &format!("{name}_input_i64"),
-        )?
-    } else {
-        input
-    };
     let axis = const_i64_scalar(tf, &format!("{name}_axis"), 0)?;
     let mut d = tf.new_operation(typ, name).map_err(|e| e.to_string())?;
     d.add_input(input);
