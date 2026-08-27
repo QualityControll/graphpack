@@ -62,6 +62,23 @@ fn main() {
 
 The important part is the composition: the input is enumerated, mapped, filtered, limited, and finally reduced without manually constructing the underlying TensorFlow graph.
 
+## Example goal: remote signal processing
+
+One of the end goals for GraphPack is a remote signal-processing pipeline such as vibration analysis. A user should eventually be able to describe the computation in a natural Rust-style chain and execute it remotely with asynchronous execution:
+
+```rust
+let result = remote
+    .input::<f32>("vibration")
+    .window(WindowFunction::Hann)
+    .fft()
+    .map(|x| x.abs())
+    .top_k(10)
+    .execute()
+    .await?;
+```
+
+This example is intentionally a goal for the future API. It illustrates the desired separation between describing a computation and executing it: `fft()` and `top_k()` are backend primitives, while `map()` remains a composable GraphPack operation, and `execute().await` submits the resulting computation to a remote executor.
+
 ## Roadmap
 
 ### Milestone 1 — Core graph DSL
@@ -111,7 +128,30 @@ The important part is the composition: the input is enumerated, mapped, filtered
 - [ ] Better compile-time validation of incompatible operations
 - [ ] Eliminate avoidable TensorFlow runtime dtype errors
 
-### Milestone 5 — TensorFlow backend
+### Milestone 5 — Numerical backend primitives
+
+- [ ] First-class `Complex<f32>`
+- [ ] Complex tensor/sequence support
+- [ ] `fft`
+- [ ] `ifft`
+- [ ] `rfft`
+- [ ] `irfft`
+- [ ] Complex operations such as `conj`, `real`, `imag`, `abs`, and `angle`
+- [ ] `reshape`
+- [ ] `transpose`
+- [ ] `slice`
+- [ ] `gather`
+- [ ] `concat`
+- [ ] `stack`
+- [ ] `matmul`
+- [ ] `dot`
+- [ ] `mean`
+- [ ] `norm`
+- [ ] `argmin` / `argmax`
+- [ ] Tier 2 primitives such as `solve`, `inverse`, `det`, `svd`, `qr`, `eigh`, convolution, sorting, and `top_k`
+- [ ] Complete an end-to-end `Complex<f32>` FFT example
+
+### Milestone 6 — TensorFlow backend
 
 - [x] Lower core graph operations to TensorFlow
 - [x] Execute generated graphs locally
@@ -119,7 +159,7 @@ The important part is the composition: the input is enumerated, mapped, filtered
 - [ ] Improve lowering diagnostics
 - [ ] Make graph lowering deterministic and robust
 
-### Milestone 6 — Portable graphs
+### Milestone 7 — Portable graphs
 
 - [ ] Define a stable serialized GraphPack representation
 - [ ] Serialize graph structure and type information
@@ -127,16 +167,17 @@ The important part is the composition: the input is enumerated, mapped, filtered
 - [ ] Validate serialized graphs before execution
 - [ ] Version the serialized representation
 
-### Milestone 7 — Remote execution
+### Milestone 8 — Remote execution
 
 - [ ] Define a remote execution protocol
 - [ ] Send serialized GraphPack graphs to a remote executor
 - [ ] Bind remote inputs and retrieve results
-- [ ] Support asynchronous execution
+- [ ] Support asynchronous `.await` execution
 - [ ] Add a reference remote execution service
 - [ ] Demonstrate execution on a separate machine
+- [ ] Complete the remote vibration-analysis example
 
-### Milestone 8 — GraphPack 1.0
+### Milestone 9 — GraphPack 1.0
 
 - [ ] Stable public API
 - [ ] Comprehensive unit and integration test suite
