@@ -62,9 +62,7 @@ fn main() {
 
 The important part is the composition: the input is enumerated, mapped, filtered, limited, and finally reduced without manually constructing the underlying TensorFlow graph.
 
-## Example goal: remote signal processing
-
-One of the end goals for GraphPack is a remote signal-processing pipeline such as vibration analysis. A user should eventually be able to describe the computation in a natural Rust-style chain and execute it remotely with asynchronous execution:
+## Example goal: chaining Supported TensorFlow Ops
 
 ```rust
 let result = remote
